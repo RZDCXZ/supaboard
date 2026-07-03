@@ -190,17 +190,17 @@ git status --short
 
 ### 关键文件
 
-- 创建或生成：`package.json`、`pnpm-lock.yaml`、`next.config.*`、`tsconfig.json`、`src/app/`。
+- 创建或生成：`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`next.config.*`、`tsconfig.json`、`src/app/`。
 - 创建：`vitest.config.ts`、`tests/unit/setup.ts`、`.env.example`、`.gitignore`。
 - 修改：`package.json` scripts。
 
 ### 开发步骤
 
-1. 在项目根目录运行 `pnpm create next-app@latest . --ts --eslint --app --src-dir --import-alias "@/*" --use-pnpm`；如果 CLI 检测到现有 `docs/`，确认只补充应用文件，不覆盖文档。
+1. 由于项目根目录已有需要保留的 `AGENTS.md`，先在临时目录运行 `pnpm create next-app@latest /private/tmp/supaboard-next-scaffold --yes --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --use-pnpm --disable-git --no-agents-md`，再将生成的应用和配置文件合并到项目根目录；不复制临时目录的 `node_modules`，不覆盖 `docs/` 和 `AGENTS.md`。
 2. 使用 `pnpm add --save-exact @supabase/supabase-js @supabase/ssr zod` 安装运行依赖。
-3. 使用 `pnpm add -D --save-exact supabase vitest jsdom @testing-library/react @testing-library/jest-dom @playwright/test` 安装开发依赖。
+3. 使用 `pnpm add -D --save-exact supabase vitest jsdom @testing-library/react @testing-library/dom @testing-library/jest-dom @vitejs/plugin-react @playwright/test` 安装开发依赖；当前 Vite 已原生支持 TypeScript 路径映射，不再安装会产生弃用提示的 `vite-tsconfig-paths`。
 4. 为 `package.json` 增加 `test`、`test:watch`、`typecheck` 和 `test:e2e` scripts。
-5. 配置 Vitest 使用 `jsdom` 和测试 setup；只写一个验证测试环境可运行的 smoke test。
+5. 配置 Vitest 使用 React 插件、`resolve.tsconfigPaths: true`、`jsdom` 和测试 setup；只写一个验证测试环境可运行的 smoke test。
 6. `.env.example` 只声明 `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`，不填写真实值。
 7. 保留 Next.js 默认首页作为临时 smoke 页面，不提前实现 DESIGN 中的应用界面。
 
