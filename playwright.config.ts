@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const loopbackNoProxy = "localhost,127.0.0.1";
+process.env.NO_PROXY = [process.env.NO_PROXY, loopbackNoProxy].filter(Boolean).join(",");
+process.env.no_proxy = [process.env.no_proxy, loopbackNoProxy].filter(Boolean).join(",");
+
 export default defineConfig({
   testDir: "./tests/e2e",
   testMatch: "**/*.spec.ts",

@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 3——建立本地 Supabase 基线。本地服务、空基线迁移、Seed、数据库类型生成和 Next.js Supabase 客户端工厂已可用；业务表和 Auth 流程将在后续阶段实现。
+> 当前进度：已完成阶段 4——Auth、SSR 会话与 Profile。邮箱注册确认、登录、密码恢复、登出、受保护路由、GitHub OAuth 入口、Profile 自动创建及 RLS 已实现，并由 pgTAP、Vitest 和 Playwright 覆盖。
 
 ## 目标能力
 
@@ -96,6 +96,7 @@ pnpm dev
 | `pnpm exec supabase start` | 启动本地 Supabase 服务 |
 | `pnpm exec supabase status` | 查看本地服务地址和开发凭据 |
 | `pnpm exec supabase db reset` | 从迁移和 Seed 重建本地数据库 |
+| `pnpm exec supabase test db --local` | 运行本地 pgTAP 数据库测试 |
 | `pnpm exec supabase gen types typescript --local > src/types/database.ts` | 重新生成数据库类型 |
 | `pnpm exec supabase stop` | 停止本地 Supabase 服务 |
 
@@ -106,9 +107,10 @@ pnpm dev
 ├── docs/                 # 产品、技术、页面与分步开发文档
 ├── public/               # 静态资源
 ├── src/app/              # Next.js App Router
+├── src/features/auth/    # Auth 校验、Server Actions 与表单
 ├── src/lib/supabase/     # Browser/Server Client 工厂与环境校验
 ├── src/types/            # 由本地数据库生成的 TypeScript 类型
-├── supabase/             # 本地配置、迁移和 Seed
+├── supabase/             # 本地配置、迁移、Seed 与 pgTAP 测试
 ├── tests/e2e/            # Playwright 端到端测试
 ├── tests/unit/           # Vitest 单元测试
 ├── .env.example          # 可提交的环境变量模板

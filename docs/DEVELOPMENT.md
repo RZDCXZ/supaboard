@@ -305,6 +305,8 @@ git commit -m "chore: add local supabase baseline"
 
 ## 6. 阶段 4：完成 Auth、SSR 会话与 Profile
 
+> 实施状态（2026-07-07）：已完成。邮箱确认与密码恢复通过本地 Mailpit 验证；Profile trigger、GRANT 和 RLS 通过 pgTAP 验证；SSR 会话刷新、登录、登出和受保护路由通过 Playwright 验证。GitHub OAuth 入口已实现，Provider 凭据和云端回调将在阶段 16 配置并验收。
+
 ### 目标
 
 完成邮箱注册、邮箱确认、登录、刷新保持会话、密码恢复、更新密码、登出和受保护路由，并由数据库自动创建 profile。
