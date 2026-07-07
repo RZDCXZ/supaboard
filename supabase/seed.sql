@@ -1,0 +1,2 @@
+-- Keep local seed data deterministic and safe to run repeatedly.
+-- Stage 3 intentionally has no business data to seed.

@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 2——初始化 Next.js 与质量工具。业务页面、数据库结构和 Supabase 本地环境将在后续阶段逐步实现。
+> 当前进度：已完成阶段 3——建立本地 Supabase 基线。本地服务、空基线迁移、Seed、数据库类型生成和 Next.js Supabase 客户端工厂已可用；业务表和 Auth 流程将在后续阶段实现。
 
 ## 目标能力
 
@@ -42,18 +42,36 @@ SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。
 pnpm install
 ```
 
-复制环境变量模板：
+安装 Playwright 使用的 Chromium：
+
+```bash
+pnpm exec playwright install chromium
+```
+
+启动本地 Supabase：
+
+```bash
+pnpm exec supabase start
+```
+
+首次启动会下载 Docker 镜像。服务启动后，通过以下命令查看本地 Project URL 和 Publishable Key：
+
+```bash
+pnpm exec supabase status
+```
+
+复制环境变量模板，并将上述两个公开值写入 `.env.local`：
 
 ```bash
 cp .env.example .env.local
 ```
 
-阶段 3 初始化本地 Supabase 后，将 CLI 输出的项目 URL 和 publishable key 写入 `.env.local`：
-
 ```dotenv
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=本地 CLI 输出的 Publishable Key
 ```
+
+不要将 Secret Key、Service Role Key 或其他本地凭据写入 Next.js 环境变量。默认本地服务可能对局域网可见，只应在可信网络中运行，禁止暴露到公网。
 
 启动开发服务器：
 
@@ -74,7 +92,12 @@ pnpm dev
 | `pnpm typecheck` | 运行 TypeScript 类型检查 |
 | `pnpm test` | 运行 Vitest 单元测试 |
 | `pnpm test:watch` | 以监听模式运行单元测试 |
-| `pnpm test:e2e` | 预留 Playwright 端到端测试入口（尚未配置） |
+| `pnpm test:e2e` | 启动开发服务器并运行 Playwright Chromium 测试 |
+| `pnpm exec supabase start` | 启动本地 Supabase 服务 |
+| `pnpm exec supabase status` | 查看本地服务地址和开发凭据 |
+| `pnpm exec supabase db reset` | 从迁移和 Seed 重建本地数据库 |
+| `pnpm exec supabase gen types typescript --local > src/types/database.ts` | 重新生成数据库类型 |
+| `pnpm exec supabase stop` | 停止本地 Supabase 服务 |
 
 ## 项目结构
 
@@ -83,9 +106,14 @@ pnpm dev
 ├── docs/                 # 产品、技术、页面与分步开发文档
 ├── public/               # 静态资源
 ├── src/app/              # Next.js App Router
+├── src/lib/supabase/     # Browser/Server Client 工厂与环境校验
+├── src/types/            # 由本地数据库生成的 TypeScript 类型
+├── supabase/             # 本地配置、迁移和 Seed
+├── tests/e2e/            # Playwright 端到端测试
 ├── tests/unit/           # Vitest 单元测试
 ├── .env.example          # 可提交的环境变量模板
 ├── package.json          # 脚本与固定版本依赖
+├── playwright.config.ts  # Playwright 测试目录与本地服务器配置
 └── vitest.config.ts      # 单元测试配置
 ```
 
