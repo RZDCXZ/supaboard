@@ -73,11 +73,15 @@ test("邮箱注册、会话刷新、登出和密码恢复", async ({ page, reque
 
   await page.goto(await getLatestMailLink(request, email));
   await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole("heading", { name: "SupaBoard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "工作区" })).toBeVisible();
+  await expect(page.getByText("还没有工作区", { exact: true })).toHaveCount(2);
 
   await page.reload();
   await expect(page).toHaveURL(/\/app$/);
 
+  await page.getByRole("link", { name: "设置", exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/settings$/);
+  await expect(page.getByRole("heading", { name: "设置" })).toBeVisible();
   await page.getByRole("button", { name: "退出登录" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/app");
@@ -87,6 +91,19 @@ test("邮箱注册、会话刷新、登出和密码恢复", async ({ page, reque
   await page.getByLabel("密码", { exact: true }).fill(oldPassword);
   await page.getByRole("button", { name: "登录", exact: true }).click();
   await expect(page).toHaveURL(/\/app$/);
+
+  await page.setViewportSize({ width: 900, height: 800 });
+  await page.reload();
+  const navigationTrigger = page.getByRole("button", { name: "打开导航" });
+  await expect(navigationTrigger).toBeVisible();
+  await navigationTrigger.focus();
+  await navigationTrigger.press("Enter");
+  await expect(page.getByRole("dialog", { name: "应用导航" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "应用导航" })).toBeHidden();
+  await expect(navigationTrigger).toBeFocused();
+
+  await page.goto("/app/settings");
   await page.getByRole("button", { name: "退出登录" }).click();
 
   await page.goto("/forgot-password");
@@ -101,6 +118,7 @@ test("邮箱注册、会话刷新、登出和密码恢复", async ({ page, reque
   await page.getByRole("button", { name: "更新密码" }).click();
   await expect(page).toHaveURL(/\/app$/);
 
+  await page.goto("/app/settings");
   await page.getByRole("button", { name: "退出登录" }).click();
   await page.getByLabel("邮箱").fill(email);
   await page.getByLabel("密码", { exact: true }).fill(newPassword);

@@ -1,20 +1,34 @@
-import { redirect } from "next/navigation";
+import { FolderKanbanIcon } from "lucide-react";
 
-import { logout } from "@/features/auth/actions";
-import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/app-shell/page-header";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
-export default async function AppPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login?next=%2Fapp");
-
-  const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", user.id).single();
-
+export default function AppPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col px-6 py-12">
-      <div className="flex items-center justify-between border-b border-zinc-200 pb-5"><div><h1 className="text-2xl font-semibold">SupaBoard</h1><p className="mt-1 text-sm text-zinc-600">你好，{profile?.display_name ?? "用户"}</p></div><form action={logout}><button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50">退出登录</button></form></div>
-      <p className="py-12 text-zinc-600">Auth 与 SSR 会话已就绪，工作区功能将在下一阶段实现。</p>
+    <main>
+      <PageHeader
+        title="工作区"
+        description="查看你已加入的工作区"
+      />
+      <div className="mx-auto w-full max-w-[960px] px-4 py-12 sm:px-6 lg:px-8">
+        <Empty className="min-h-64 border border-border bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FolderKanbanIcon aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>还没有工作区</EmptyTitle>
+            <EmptyDescription>
+              加入工作区后，你可以在这里查看任务和成员。
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
     </main>
   );
 }

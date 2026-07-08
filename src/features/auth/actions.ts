@@ -9,13 +9,18 @@ import { getSafeNextPath } from "./redirect";
 import type { AuthActionState } from "./types";
 import {
   forgotPasswordSchema,
+  getAuthFieldErrors,
   loginSchema,
   signupSchema,
   updatePasswordSchema,
 } from "./validation";
 
-function validationError(message = "请检查输入后重试"): AuthActionState {
-  return { status: "error", message };
+function validationError(error?: Parameters<typeof getAuthFieldErrors>[0]): AuthActionState {
+  return {
+    status: "error",
+    message: "请检查输入后重试",
+    fieldErrors: error ? getAuthFieldErrors(error) : undefined,
+  };
 }
 
 async function getRequestOrigin(): Promise<string> {
@@ -42,14 +47,14 @@ export async function login(
   });
 
   if (!parsed.success) {
-    return validationError(parsed.error.issues[0]?.message);
+    return validationError(parsed.error);
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
-    return validationError("邮箱或密码不正确");
+    return { status: "error", message: "邮箱或密码不正确" };
   }
 
   redirect(getSafeNextPath(formData.get("next")?.toString() ?? null));
@@ -66,7 +71,7 @@ export async function signup(
   });
 
   if (!parsed.success) {
-    return validationError(parsed.error.issues[0]?.message);
+    return validationError(parsed.error);
   }
 
   const callbackUrl = new URL("/auth/callback", await getRequestOrigin());
@@ -80,7 +85,7 @@ export async function signup(
   });
 
   if (error) {
-    return validationError("暂时无法注册，请稍后重试");
+    return { status: "error", message: "暂时无法注册，请稍后重试" };
   }
 
   if (data.session) {
@@ -99,7 +104,7 @@ export async function requestPasswordReset(
   });
 
   if (!parsed.success) {
-    return validationError(parsed.error.issues[0]?.message);
+    return validationError(parsed.error);
   }
 
   const callbackUrl = new URL("/auth/callback", await getRequestOrigin());
@@ -126,7 +131,7 @@ export async function updatePassword(
   });
 
   if (!parsed.success) {
-    return validationError(parsed.error.issues[0]?.message);
+    return validationError(parsed.error);
   }
 
   const supabase = await createClient();
@@ -135,7 +140,10 @@ export async function updatePassword(
   });
 
   if (error) {
-    return validationError("密码更新失败，请重新发送恢复邮件");
+    return {
+      status: "error",
+      message: "密码更新失败，请重新发送恢复邮件",
+    };
   }
 
   redirect("/app");

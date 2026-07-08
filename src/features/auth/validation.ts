@@ -1,5 +1,29 @@
 import { z } from "zod";
 
+import type { AuthFieldErrors, AuthFieldName } from "./types";
+
+const authFieldNames = new Set<AuthFieldName>([
+  "email",
+  "password",
+  "confirmPassword",
+]);
+
+export function getAuthFieldErrors(error: z.ZodError): AuthFieldErrors {
+  return error.issues.reduce<AuthFieldErrors>((errors, issue) => {
+    const field = issue.path[0];
+
+    if (
+      typeof field === "string" &&
+      authFieldNames.has(field as AuthFieldName) &&
+      !errors[field as AuthFieldName]
+    ) {
+      errors[field as AuthFieldName] = issue.message;
+    }
+
+    return errors;
+  }, {});
+}
+
 const emailSchema = z
   .string()
   .trim()

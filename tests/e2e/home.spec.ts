@@ -1,13 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-test("renders the temporary home page", async ({ page }) => {
+test("根路由进入受保护应用入口", async ({ page }) => {
   await page.goto("/");
 
   await expect(page).toHaveTitle("SupaBoard");
-  await expect(
-    page.getByRole("heading", {
-      level: 1,
-      name: "To get started, edit the page.tsx file.",
-    }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/login\?next=%2Fapp$/);
+  await expect(page.getByRole("heading", { name: "登录 SupaBoard" })).toBeVisible();
 });

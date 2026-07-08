@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   forgotPasswordSchema,
+  getAuthFieldErrors,
   loginSchema,
   passwordSchema,
   signupSchema,
@@ -25,12 +26,17 @@ describe("Auth input validation", () => {
   });
 
   it("requires matching passwords when signing up", () => {
-    expect(
-      signupSchema.safeParse({
-        email: "user@example.com",
-        password: "password123",
-        confirmPassword: "different123",
-      }).success,
-    ).toBe(false);
+    const result = signupSchema.safeParse({
+      email: "user@example.com",
+      password: "password123",
+      confirmPassword: "different123",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(getAuthFieldErrors(result.error)).toEqual({
+        confirmPassword: "两次输入的密码不一致",
+      });
+    }
   });
 });
