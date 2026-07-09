@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 5——视觉基础与应用框架。邮箱 Auth、SSR 会话、Profile 自动创建及 RLS 保持可用；基于 shadcn/ui 的语义组件、无障碍 Auth 表单、响应式受保护应用框架、工作区空状态和最小设置页已实现，并由 pgTAP、Vitest 和 Playwright 覆盖。
+> 当前进度：已完成阶段 6——工作区创建与列表。邮箱 Auth、SSR 会话、Profile 自动创建及 RLS 保持可用；用户可以创建工作区、自动成为唯一 Owner，并只能查看自己加入的工作区。工作区数据库结构、RLS、RPC、列表页、边栏和最小详情页已由 pgTAP、Vitest 和 Playwright 覆盖。
 
 ## 目标能力
 
@@ -110,6 +110,7 @@ pnpm dev
 ├── src/app/              # Next.js App Router
 ├── src/components/       # shadcn/ui 基础组件、反馈组件与应用框架
 ├── src/features/auth/    # Auth 校验、Server Actions 与表单
+├── src/features/workspaces/ # 工作区校验、查询、Server Action 与组件
 ├── src/lib/supabase/     # Browser/Server Client 工厂与环境校验
 ├── src/types/            # 由本地数据库生成的 TypeScript 类型
 ├── supabase/             # 本地配置、迁移、Seed 与 pgTAP 测试

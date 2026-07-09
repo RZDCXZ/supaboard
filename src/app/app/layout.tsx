@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell/app-shell";
+import { getCurrentUserWorkspaces } from "@/features/workspaces/queries";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ProtectedAppLayout({
@@ -22,6 +23,7 @@ export default async function ProtectedAppLayout({
     .select("display_name, avatar_path")
     .eq("id", user.id)
     .single();
+  const workspaces = await getCurrentUserWorkspaces(supabase).catch(() => []);
 
   return (
     <AppShell
@@ -29,7 +31,7 @@ export default async function ProtectedAppLayout({
         displayName: profile?.display_name ?? "用户",
         avatarUrl: null,
       }}
-      workspaces={[]}
+      workspaces={workspaces}
     >
       {children}
     </AppShell>

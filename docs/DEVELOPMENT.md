@@ -501,6 +501,8 @@ git add supabase src/features/workspaces src/app/app
 git commit -m "feat: add workspace creation and listing"
 ```
 
+> 实施状态（2026-07-09）：已完成。已新增 `workspaces`、`workspace_members`、Owner 唯一约束、Owner 保护触发器、成员辅助函数和 `create_workspace` RPC；迁移显式配置 `GRANT` 与 RLS。`/app`、应用边栏和最小工作区详情页已接入真实查询；创建工作区后当前用户自动成为唯一 Owner 并跳转到工作区页。阶段 7 的任务 CRUD、统计和成员管理仍未实现。
+
 ## 9. 阶段 7：任务纵向切片
 
 ### 目标

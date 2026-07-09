@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGridIcon, SettingsIcon } from "lucide-react";
+import { LayoutGridIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -95,9 +95,15 @@ function ShellNavigation({
           <SidebarGroupLabel>工作区</SidebarGroupLabel>
           <SidebarGroupContent>
             {workspaces.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-muted-foreground">
-                还没有工作区
-              </p>
+              <div className="flex flex-col gap-1 px-2 py-3">
+                <p className="text-sm text-muted-foreground">还没有工作区</p>
+                <SidebarMenuButton asChild size="sm">
+                  <Link href="/app" onClick={closeMobile}>
+                    <PlusIcon />
+                    <span>创建工作区</span>
+                  </Link>
+                </SidebarMenuButton>
+              </div>
             ) : (
               <SidebarMenu>
                 {workspaces.map((workspace) => {

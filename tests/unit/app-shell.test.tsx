@@ -1,11 +1,15 @@
-import { render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
 
 import { AppShell } from "@/components/app-shell/app-shell";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/app",
 }));
+
+afterEach(() => {
+  cleanup();
+});
 
 test("AppShell 显示用户、总览、设置和真实工作区空状态", () => {
   render(
@@ -25,6 +29,32 @@ test("AppShell 显示用户、总览、设置和真实工作区空状态", () =>
   );
   expect(screen.getByRole("link", { name: "设置" })).toBeVisible();
   expect(screen.getByText("还没有工作区")).toBeVisible();
-  expect(screen.queryByRole("button", { name: "创建工作区" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "创建工作区" })).toHaveAttribute(
+    "href",
+    "/app",
+  );
   expect(screen.getByText("页面内容")).toBeVisible();
+});
+
+test("AppShell 渲染真实工作区导航项", () => {
+  render(
+    <AppShell
+      user={{ displayName: "Alice", avatarUrl: null }}
+      workspaces={[
+        {
+          id: "workspace-1",
+          name: "Alpha Workspace",
+          href: "/app/workspaces/workspace-1",
+        },
+      ]}
+    >
+      <p>页面内容</p>
+    </AppShell>,
+  );
+
+  expect(screen.getByRole("link", { name: "Alpha Workspace" })).toHaveAttribute(
+    "href",
+    "/app/workspaces/workspace-1",
+  );
+  expect(screen.queryByText("还没有工作区")).not.toBeInTheDocument();
 });
