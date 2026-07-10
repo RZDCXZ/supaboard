@@ -16,8 +16,13 @@ function parseActivityPage(value: string | undefined) {
 export function parseWorkspaceViewSearchParams(
   searchParams: SearchParams,
 ): WorkspaceView {
+  const requestedTab = first(searchParams.tab);
+
   return {
-    tab: first(searchParams.tab) === "activity" ? "activity" : "tasks",
+    tab:
+      requestedTab === "activity" || requestedTab === "members"
+        ? requestedTab
+        : "tasks",
     activityPage: parseActivityPage(first(searchParams.activityPage)),
   };
 }

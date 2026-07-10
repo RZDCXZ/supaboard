@@ -1,5 +1,7 @@
 begin;
 
+\ir ./_helpers.psql
+
 select no_plan();
 
 select has_table('public', 'comments', 'comments table exists');
@@ -13,60 +15,6 @@ select has_column('public', 'activity_logs', 'action', 'activity_logs.action exi
 select has_column('public', 'activity_logs', 'entity_id', 'activity_logs.entity_id exists');
 select has_column('public', 'activity_logs', 'metadata', 'activity_logs.metadata exists');
 
-insert into auth.users (
-  id,
-  instance_id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at
-)
-values
-  (
-    '00000000-0000-0000-0000-000000000011',
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated',
-    'authenticated',
-    'alice@example.com',
-    crypt('password123', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Alice"}'::jsonb,
-    now(),
-    now()
-  ),
-  (
-    '00000000-0000-0000-0000-000000000012',
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated',
-    'authenticated',
-    'bob@example.com',
-    crypt('password123', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Bob"}'::jsonb,
-    now(),
-    now()
-  ),
-  (
-    '00000000-0000-0000-0000-000000000013',
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated',
-    'authenticated',
-    'charlie@example.com',
-    crypt('password123', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Charlie"}'::jsonb,
-    now(),
-    now()
-  );
-
 create temporary table test_stage8_ids (
   key text primary key,
   id uuid not null
@@ -74,8 +22,7 @@ create temporary table test_stage8_ids (
 
 grant select, insert, update, delete on table test_stage8_ids to authenticated;
 
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('alice');
 set local role authenticated;
 
 insert into test_stage8_ids (key, id)
@@ -86,9 +33,9 @@ values
 insert into public.workspace_members (workspace_id, user_id, role, added_by)
 values (
   (select id from test_stage8_ids where key = 'alpha'),
-  '00000000-0000-0000-0000-000000000012',
+  '00000000-0000-4000-8000-000000000012',
   'member',
-  '00000000-0000-0000-0000-000000000011'
+  '00000000-0000-4000-8000-000000000011'
 );
 
 with inserted as (
@@ -96,7 +43,7 @@ with inserted as (
   values (
     (select id from test_stage8_ids where key = 'alpha'),
     'Alpha task',
-    '00000000-0000-0000-0000-000000000011'
+    '00000000-0000-4000-8000-000000000011'
   )
   returning id
 )
@@ -104,8 +51,7 @@ insert into test_stage8_ids (key, id)
 select 'alpha-task', id from inserted;
 
 reset role;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000013', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('charlie');
 set local role authenticated;
 
 insert into test_stage8_ids (key, id)
@@ -116,7 +62,7 @@ with inserted as (
   values (
     (select id from test_stage8_ids where key = 'beta'),
     'Beta task',
-    '00000000-0000-0000-0000-000000000013'
+    '00000000-0000-4000-8000-000000000013'
   )
   returning id
 )
@@ -124,6 +70,7 @@ insert into test_stage8_ids (key, id)
 select 'beta-task', id from inserted;
 
 reset role;
+select tests.clear_authentication();
 set local role anon;
 
 select throws_ok(
@@ -141,8 +88,7 @@ select throws_ok(
 );
 
 reset role;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('alice');
 set local role authenticated;
 
 select throws_ok(
@@ -150,7 +96,7 @@ select throws_ok(
     values (
       (select id from test_stage8_ids where key = 'alpha-task'),
       (select id from test_stage8_ids where key = 'alpha'),
-      '00000000-0000-0000-0000-000000000011',
+      '00000000-0000-4000-8000-000000000011',
       '   '
     )$$,
   '23514',
@@ -163,7 +109,7 @@ select throws_ok(
     values (
       (select id from test_stage8_ids where key = 'alpha-task'),
       (select id from test_stage8_ids where key = 'alpha'),
-      '00000000-0000-0000-0000-000000000011',
+      '00000000-0000-4000-8000-000000000011',
       repeat('x', 2001)
     )$$,
   '23514',
@@ -176,7 +122,7 @@ select throws_ok(
     values (
       (select id from test_stage8_ids where key = 'alpha-task'),
       (select id from test_stage8_ids where key = 'alpha'),
-      '00000000-0000-0000-0000-000000000012',
+      '00000000-0000-4000-8000-000000000012',
       'Forged author'
     )$$,
   '42501',
@@ -189,7 +135,7 @@ select throws_ok(
     values (
       (select id from test_stage8_ids where key = 'alpha-task'),
       (select id from test_stage8_ids where key = 'gamma'),
-      '00000000-0000-0000-0000-000000000011',
+      '00000000-0000-4000-8000-000000000011',
       'Cross-workspace comment'
     )$$,
   '23503',
@@ -202,7 +148,7 @@ with inserted as (
   values (
     (select id from test_stage8_ids where key = 'alpha-task'),
     (select id from test_stage8_ids where key = 'alpha'),
-    '00000000-0000-0000-0000-000000000011',
+    '00000000-0000-4000-8000-000000000011',
     'Alice comment'
   )
   returning id
@@ -211,8 +157,7 @@ insert into test_stage8_ids (key, id)
 select 'alice-comment', id from inserted;
 
 reset role;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000012', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('bob');
 set local role authenticated;
 
 with inserted as (
@@ -220,7 +165,7 @@ with inserted as (
   values (
     (select id from test_stage8_ids where key = 'alpha-task'),
     (select id from test_stage8_ids where key = 'alpha'),
-    '00000000-0000-0000-0000-000000000012',
+    '00000000-0000-4000-8000-000000000012',
     'Bob comment'
   )
   returning id
@@ -277,15 +222,14 @@ select throws_ok(
 
 select throws_ok(
   $$update public.comments
-    set author_id = '00000000-0000-0000-0000-000000000011'
+    set author_id = '00000000-0000-4000-8000-000000000011'
     where id = (select id from test_stage8_ids where key = 'bob-comment')$$,
   'P0001',
   null,
   'comment author cannot be rebound'
 );
 
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000012', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('bob');
 set local role authenticated;
 
 select lives_ok(
@@ -306,8 +250,7 @@ select is(
   'members cannot delete another author comment'
 );
 
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('alice');
 set local role authenticated;
 
 select lives_ok(
@@ -328,8 +271,7 @@ select is(
   'owner comment deletes are persisted'
 );
 
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000013', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('charlie');
 set local role authenticated;
 
 select is(
@@ -347,7 +289,7 @@ select throws_ok(
     values (
       (select id from test_stage8_ids where key = 'alpha-task'),
       (select id from test_stage8_ids where key = 'alpha'),
-      '00000000-0000-0000-0000-000000000013',
+      '00000000-0000-4000-8000-000000000013',
       'Charlie comment'
     )$$,
   '42501',
@@ -356,8 +298,7 @@ select throws_ok(
 );
 
 reset role;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000012', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('bob');
 set local role authenticated;
 
 select is(
@@ -424,7 +365,7 @@ select is(
     where workspace_id = (select id from test_stage8_ids where key = 'alpha')
       and action = 'task.status_changed'
   ),
-  '00000000-0000-0000-0000-000000000012'::uuid,
+  '00000000-0000-4000-8000-000000000012'::uuid,
   'status activity records the authenticated actor'
 );
 
@@ -451,7 +392,7 @@ select throws_ok(
       workspace_id, actor_id, action, entity_type, entity_id, metadata
     ) values (
       (select id from test_stage8_ids where key = 'alpha'),
-      '00000000-0000-0000-0000-000000000012',
+      '00000000-0000-4000-8000-000000000012',
       'task.deleted',
       'task',
       gen_random_uuid(),
@@ -487,7 +428,7 @@ select throws_ok(
       workspace_id, actor_id, action, entity_type, entity_id, metadata
     ) values (
       (select id from test_stage8_ids where key = 'alpha'),
-      '00000000-0000-0000-0000-000000000012',
+      '00000000-0000-4000-8000-000000000012',
       'task.deleted',
       'task',
       gen_random_uuid(),
@@ -499,8 +440,7 @@ select throws_ok(
 );
 
 reset role;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000012', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('bob');
 set local role authenticated;
 
 select lives_ok(
@@ -559,7 +499,7 @@ insert into public.tasks (workspace_id, title, created_by)
 values (
   (select id from test_stage8_ids where key = 'gamma'),
   'System task',
-  '00000000-0000-0000-0000-000000000011'
+  '00000000-0000-4000-8000-000000000011'
 );
 
 select is(

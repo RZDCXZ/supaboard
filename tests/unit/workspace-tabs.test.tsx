@@ -21,19 +21,19 @@ beforeEach(() => {
   mocks.replace.mockReset();
 });
 
-test("WorkspaceTabs switches URL state without exposing deferred tabs", () => {
+test("WorkspaceTabs exposes members and switches URL state", () => {
   render(<WorkspaceTabs tab="tasks" />);
 
   expect(screen.getByRole("tab", { name: "任务" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "成员" })).toBeVisible();
   expect(screen.getByRole("tab", { name: "活动" })).toBeVisible();
-  expect(screen.queryByRole("tab", { name: "成员" })).not.toBeInTheDocument();
 
-  fireEvent.mouseDown(screen.getByRole("tab", { name: "活动" }), {
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "成员" }), {
     button: 0,
     ctrlKey: false,
   });
   expect(mocks.replace).toHaveBeenCalledWith(
-    `/app/workspaces/${workspaceId}?status=done&tab=activity`,
+    `/app/workspaces/${workspaceId}?status=done&tab=members`,
     { scroll: false },
   );
 });

@@ -673,9 +673,9 @@ git commit -m "feat: add comments and activity logs"
 
 ```bash
 pnpm exec supabase db reset
-pnpm exec supabase test db
+pnpm exec supabase test db --local
 pnpm test
-pnpm exec playwright test tests/e2e/members.spec.ts
+pnpm exec playwright test tests/e2e/members.spec.ts --repeat-each=2
 pnpm typecheck
 ```
 
@@ -704,6 +704,8 @@ pnpm typecheck
 git add supabase src/features/members src/features/tasks tests
 git commit -m "test: add stable multi-tenant fixtures"
 ```
+
+> 实施状态（2026-07-10）：已完成。Seed 已幂等提供可登录的 Alice、Bob、Charlie 及 Alpha/Beta 固定关系，数据库测试统一通过三身份 helper 切换 JWT；成员查询仅返回公开 Profile 字段、角色和加入时间，并按 Owner、加入时间、用户 ID 稳定排序。工作区已接入只读成员页签，任务负责人复用同一成员 DTO；Playwright Admin 夹具会随机创建、自动确认并完整清理临时身份和工作区，公开注册与 Mailpit 流程仍由 Auth E2E 覆盖。MEMBER-01、跨租户拒绝和 Seed Alice 登录均已覆盖；成员增删、头像 Storage 与 Realtime 保留到后续阶段。
 
 ## 12. 阶段 10：公共头像 Storage
 

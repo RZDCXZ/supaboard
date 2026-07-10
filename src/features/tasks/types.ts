@@ -1,12 +1,15 @@
+import type { WorkspaceMember } from "@/features/members/types";
+
 export type TaskStatus = "todo" | "in_progress" | "done";
 
 export type TaskPriority = "low" | "medium" | "high";
 
-export type TaskAssignee = {
-  id: string;
-  displayName: string;
-  avatarPath: string | null;
-};
+export type TaskMemberOption = Pick<
+  WorkspaceMember,
+  "id" | "displayName" | "avatarPath"
+>;
+
+export type TaskAssignee = TaskMemberOption;
 
 export type TaskItem = {
   id: string;
@@ -20,8 +23,6 @@ export type TaskItem = {
   createdAt: string;
   updatedAt: string;
 };
-
-export type TaskMemberOption = TaskAssignee;
 
 export type WorkspaceTaskStats = {
   total: number;

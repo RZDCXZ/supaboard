@@ -1,5 +1,7 @@
 begin;
 
+\ir ./_helpers.psql
+
 select no_plan();
 
 select has_table('public', 'tasks', 'tasks table exists');
@@ -21,60 +23,6 @@ select has_function(
   'get_workspace_stats(uuid) exists'
 );
 
-insert into auth.users (
-  id,
-  instance_id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at
-)
-values
-  (
-    '00000000-0000-0000-0000-000000000011',
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated',
-    'authenticated',
-    'alice@example.com',
-    crypt('password123', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Alice"}'::jsonb,
-    now(),
-    now()
-  ),
-  (
-    '00000000-0000-0000-0000-000000000012',
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated',
-    'authenticated',
-    'bob@example.com',
-    crypt('password123', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Bob"}'::jsonb,
-    now(),
-    now()
-  ),
-  (
-    '00000000-0000-0000-0000-000000000013',
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated',
-    'authenticated',
-    'charlie@example.com',
-    crypt('password123', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Charlie"}'::jsonb,
-    now(),
-    now()
-  );
-
 create temporary table test_task_ids (
   key text primary key,
   id uuid not null
@@ -82,8 +30,7 @@ create temporary table test_task_ids (
 
 grant select, insert, update, delete on table test_task_ids to authenticated;
 
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('alice');
 set local role authenticated;
 
 insert into test_task_ids (key, id)
@@ -92,20 +39,20 @@ values ('alpha', public.create_workspace('Alpha'));
 insert into public.workspace_members (workspace_id, user_id, role, added_by)
 values (
   (select id from test_task_ids where key = 'alpha'),
-  '00000000-0000-0000-0000-000000000012',
+  '00000000-0000-4000-8000-000000000012',
   'member',
-  '00000000-0000-0000-0000-000000000011'
+  '00000000-0000-4000-8000-000000000011'
 );
 
 reset role;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000013', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('charlie');
 set local role authenticated;
 
 insert into test_task_ids (key, id)
 values ('beta', public.create_workspace('Beta'));
 
 reset role;
+select tests.clear_authentication();
 set local role anon;
 
 select throws_ok(
@@ -130,8 +77,7 @@ select throws_ok(
 );
 
 reset role;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('alice');
 set local role authenticated;
 
 select lives_ok(
@@ -147,7 +93,7 @@ with inserted as (
   values (
     (select id from test_task_ids where key = 'alpha'),
     'Default task',
-    '00000000-0000-0000-0000-000000000011'
+    '00000000-0000-4000-8000-000000000011'
   )
   returning id
 )
@@ -174,8 +120,7 @@ select ok(
   'new tasks receive timestamps'
 );
 
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('alice');
 set local role authenticated;
 
 select throws_ok(
@@ -183,7 +128,7 @@ select throws_ok(
     values (
       (select id from test_task_ids where key = 'alpha'),
       '   ',
-      '00000000-0000-0000-0000-000000000011'
+      '00000000-0000-4000-8000-000000000011'
     )$$,
   '23514',
   null,
@@ -195,7 +140,7 @@ select throws_ok(
     values (
       (select id from test_task_ids where key = 'alpha'),
       repeat('x', 201),
-      '00000000-0000-0000-0000-000000000011'
+      '00000000-0000-4000-8000-000000000011'
     )$$,
   '23514',
   null,
@@ -208,7 +153,7 @@ select throws_ok(
       (select id from test_task_ids where key = 'alpha'),
       'Long description',
       repeat('x', 5001),
-      '00000000-0000-0000-0000-000000000011'
+      '00000000-0000-4000-8000-000000000011'
     )$$,
   '23514',
   null,
@@ -221,7 +166,7 @@ select throws_ok(
       (select id from test_task_ids where key = 'alpha'),
       'Invalid status',
       'blocked',
-      '00000000-0000-0000-0000-000000000011'
+      '00000000-0000-4000-8000-000000000011'
     )$$,
   '23514',
   null,
@@ -234,7 +179,7 @@ select throws_ok(
       (select id from test_task_ids where key = 'alpha'),
       'Invalid priority',
       'urgent',
-      '00000000-0000-0000-0000-000000000011'
+      '00000000-0000-4000-8000-000000000011'
     )$$,
   '23514',
   null,
@@ -246,8 +191,8 @@ select throws_ok(
     values (
       (select id from test_task_ids where key = 'alpha'),
       'Invalid assignee',
-      '00000000-0000-0000-0000-000000000013',
-      '00000000-0000-0000-0000-000000000011'
+      '00000000-0000-4000-8000-000000000013',
+      '00000000-0000-4000-8000-000000000011'
     )$$,
   '23514',
   null,
@@ -259,7 +204,7 @@ select throws_ok(
     values (
       (select id from test_task_ids where key = 'alpha'),
       'Wrong creator',
-      '00000000-0000-0000-0000-000000000012'
+      '00000000-0000-4000-8000-000000000012'
     )$$,
   '42501',
   null,
@@ -271,8 +216,8 @@ with inserted as (
   values (
     (select id from test_task_ids where key = 'alpha'),
     'Assigned task',
-    '00000000-0000-0000-0000-000000000012',
-    '00000000-0000-0000-0000-000000000011'
+    '00000000-0000-4000-8000-000000000012',
+    '00000000-0000-4000-8000-000000000011'
   )
   returning id
 )
@@ -299,8 +244,7 @@ select is(
 );
 
 reset role;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000012', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('bob');
 set local role authenticated;
 
 select is(
@@ -337,8 +281,7 @@ select ok(
   'task updates maintain updated_at'
 );
 
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000012', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('bob');
 set local role authenticated;
 
 select throws_ok(
@@ -352,7 +295,7 @@ select throws_ok(
 
 select throws_ok(
   $$update public.tasks
-    set created_by = '00000000-0000-0000-0000-000000000012'
+    set created_by = '00000000-0000-4000-8000-000000000012'
     where id = (select id from test_task_ids where key = 'assigned-task')$$,
   'P0001',
   null,
@@ -369,8 +312,7 @@ select throws_ok(
 );
 
 reset role;
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000013', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('charlie');
 set local role authenticated;
 
 select is(
@@ -419,8 +361,7 @@ select is(
   'non-members cannot delete tasks'
 );
 
-select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000012', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
+select tests.authenticate_as('bob');
 set local role authenticated;
 
 select lives_ok(

@@ -8,7 +8,6 @@ import { clampTaskPageSize } from "./search-params";
 import type {
   TaskFilters,
   TaskItem,
-  TaskMemberOption,
   TaskPage,
   TaskPriority,
   TaskStatus,
@@ -30,15 +29,6 @@ export type TaskRow = {
   created_at: string;
   updated_at: string;
   assignee: {
-    id: string;
-    display_name: string;
-    avatar_path: string | null;
-  } | null;
-};
-
-type WorkspaceMemberRow = {
-  user_id: string;
-  profiles: {
     id: string;
     display_name: string;
     avatar_path: string | null;
@@ -149,35 +139,6 @@ export async function getWorkspaceTask(
   }
 
   return data ? mapTaskRow(data as TaskRow) : null;
-}
-
-export async function getWorkspaceTaskMembers(
-  supabase: SupabaseClient<Database>,
-  workspaceId: string,
-): Promise<TaskMemberOption[]> {
-  const { data, error } = await supabase
-    .from("workspace_members")
-    .select(
-      "user_id, profiles!workspace_members_user_id_fkey(id, display_name, avatar_path)",
-    )
-    .eq("workspace_id", workspaceId)
-    .order("joined_at", { ascending: true });
-
-  if (error) {
-    throw new TaskQueryError("TASK_MEMBERS_QUERY_FAILED");
-  }
-
-  return ((data ?? []) as WorkspaceMemberRow[]).flatMap((row) =>
-    row.profiles
-      ? [
-          {
-            id: row.profiles.id,
-            displayName: row.profiles.display_name,
-            avatarPath: row.profiles.avatar_path,
-          },
-        ]
-      : [],
-  );
 }
 
 export async function getWorkspaceTaskStats(

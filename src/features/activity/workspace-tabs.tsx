@@ -14,13 +14,13 @@ export function WorkspaceTabs({ tab }: { tab: WorkspaceTab }) {
   const [isNavigating, startTransition] = useTransition();
 
   function changeTab(value: string) {
-    if (value !== "tasks" && value !== "activity") return;
+    if (value !== "tasks" && value !== "members" && value !== "activity") return;
 
     const params = new URLSearchParams(searchParams.toString());
     params.delete("task");
     params.delete("activityPage");
 
-    if (value === "activity") params.set("tab", "activity");
+    if (value === "activity" || value === "members") params.set("tab", value);
     else params.delete("tab");
 
     const query = params.toString();
@@ -37,6 +37,9 @@ export function WorkspaceTabs({ tab }: { tab: WorkspaceTab }) {
         <TabsList variant="line" aria-label="工作区内容">
           <TabsTrigger value="tasks" disabled={isNavigating}>
             任务
+          </TabsTrigger>
+          <TabsTrigger value="members" disabled={isNavigating}>
+            成员
           </TabsTrigger>
           <TabsTrigger value="activity" disabled={isNavigating}>
             活动

@@ -10,9 +10,10 @@ import { getWorkspaceActivityPage } from "@/features/activity/queries";
 import { parseWorkspaceViewSearchParams } from "@/features/activity/search-params";
 import { WorkspaceTabs } from "@/features/activity/workspace-tabs";
 import { getTaskComments } from "@/features/comments/queries";
+import { MemberList } from "@/features/members/member-list";
+import { getWorkspaceMembers } from "@/features/members/queries";
 import {
   getWorkspaceTask,
-  getWorkspaceTaskMembers,
   getWorkspaceTaskPage,
   getWorkspaceTaskStats,
 } from "@/features/tasks/queries";
@@ -68,22 +69,48 @@ export default async function WorkspacePage({
     );
   }
 
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button asChild variant="outline">
+        <Link href="/app">返回总览</Link>
+      </Button>
+      <Badge variant={workspace.role === "owner" ? "default" : "secondary"}>
+        {workspace.role === "owner" ? "Owner" : "成员"}
+      </Badge>
+    </div>
+  );
   const header = (
     <PageHeader
       title={workspace.name}
       description="创建、筛选和维护任务，查看自动活动记录"
-      actions={
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline">
-            <Link href="/app">返回总览</Link>
-          </Button>
-          <Badge variant={workspace.role === "owner" ? "default" : "secondary"}>
-            {workspace.role === "owner" ? "Owner" : "成员"}
-          </Badge>
-        </div>
-      }
+      actions={headerActions}
     />
   );
+
+  if (workspaceView.tab === "members") {
+    const membersResult = await getWorkspaceMembers(supabase, workspaceId).then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      () => ({ status: "rejected" as const }),
+    );
+    const members = membersResult.status === "fulfilled" ? membersResult.value : null;
+    const retryHref = `/app/workspaces/${workspaceId}?tab=members`;
+
+    return (
+      <main>
+        <PageHeader
+          title={workspace.name}
+          description={members ? `${members.length} 位成员` : "查看工作区成员"}
+          actions={headerActions}
+        />
+        <WorkspaceTabs tab="members" />
+        <MemberList
+          members={members}
+          error={membersResult.status === "rejected"}
+          retryHref={retryHref}
+        />
+      </main>
+    );
+  }
 
   if (workspaceView.tab === "activity") {
     const activityResult = await getWorkspaceActivityPage(
@@ -152,7 +179,7 @@ export default async function WorkspacePage({
   const [taskPageResult, membersResult, statsResult, selectedTaskResult, commentsResult] =
     await Promise.allSettled([
       getWorkspaceTaskPage(supabase, workspaceId, filters),
-      getWorkspaceTaskMembers(supabase, workspaceId),
+      getWorkspaceMembers(supabase, workspaceId),
       getWorkspaceTaskStats(supabase, workspaceId),
       filters.taskId
         ? getWorkspaceTask(supabase, workspaceId, filters.taskId)

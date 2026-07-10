@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  getWorkspaceTaskMembers,
   getWorkspaceTaskPage,
   getWorkspaceTaskStats,
 } from "@/features/tasks/queries";
@@ -99,30 +98,6 @@ describe("task queries", () => {
     );
 
     expect(builder.eq).toHaveBeenCalledWith("assignee_id", userId);
-  });
-
-  it("maps workspace members to assignment options", async () => {
-    const builder = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      order: vi.fn(),
-    };
-    builder.select.mockReturnValue(builder);
-    builder.eq.mockReturnValue(builder);
-    builder.order.mockResolvedValue({
-      data: [
-        {
-          user_id: userId,
-          profiles: { id: userId, display_name: "Alice", avatar_path: null },
-        },
-      ],
-      error: null,
-    });
-    const supabase = { from: vi.fn(() => builder) };
-
-    await expect(
-      getWorkspaceTaskMembers(supabase as never, workspaceId),
-    ).resolves.toEqual([{ id: userId, displayName: "Alice", avatarPath: null }]);
   });
 
   it("maps the workspace stats RPC result", async () => {

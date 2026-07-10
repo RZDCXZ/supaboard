@@ -32,7 +32,7 @@ export type ActivityPage = {
   hasMore: boolean;
 };
 
-export type WorkspaceTab = "tasks" | "activity";
+export type WorkspaceTab = "tasks" | "members" | "activity";
 
 export type WorkspaceView = {
   tab: WorkspaceTab;
