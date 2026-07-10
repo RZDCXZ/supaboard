@@ -25,6 +25,11 @@ vi.mock("@/features/tasks/actions", () => ({
   deleteTask: vi.fn(),
 }));
 
+vi.mock("@/features/comments/actions", () => ({
+  createComment: vi.fn(),
+  deleteComment: vi.fn(),
+}));
+
 function task(): TaskItem {
   return {
     id: taskId,
@@ -53,6 +58,9 @@ test("TaskWorkspace keeps filters, paging and task selection in the URL", () => 
       filters={{ status: "done", assignee: "all", page: 1, taskId: null }}
       taskPage={{ tasks: [task()], page: 1, pageSize: 20, total: 21, totalPages: 2 }}
       members={[]}
+      comments={[]}
+      currentUserId="33333333-3333-4333-8333-333333333333"
+      workspaceRole="owner"
       stats={{ total: 21, todo: 0, inProgress: 0, done: 21 }}
       statsError={false}
       selectedTask={null}
@@ -76,4 +84,38 @@ test("TaskWorkspace keeps filters, paging and task selection in the URL", () => 
     `/app/workspaces/${workspaceId}?status=done&page=2`,
     { scroll: false },
   );
+});
+
+test("TaskWorkspace passes selected task comments and permissions into the drawer", () => {
+  render(
+    <TaskWorkspace
+      workspaceId={workspaceId}
+      filters={{ status: "done", assignee: "all", page: 1, taskId }}
+      taskPage={{ tasks: [task()], page: 1, pageSize: 20, total: 1, totalPages: 1 }}
+      members={[]}
+      comments={[
+        {
+          id: "55555555-5555-4555-8555-555555555555",
+          taskId,
+          workspaceId,
+          author: {
+            id: "33333333-3333-4333-8333-333333333333",
+            displayName: "Alice",
+            avatarPath: null,
+          },
+          body: "Stage 8 comment",
+          createdAt: "2026-07-10T00:00:00Z",
+          updatedAt: "2026-07-10T00:00:00Z",
+        },
+      ]}
+      currentUserId="33333333-3333-4333-8333-333333333333"
+      workspaceRole="owner"
+      stats={{ total: 1, todo: 0, inProgress: 0, done: 1 }}
+      statsError={false}
+      selectedTask={task()}
+    />,
+  );
+
+  expect(screen.getByText("Stage 8 comment")).toBeVisible();
+  expect(screen.getByRole("button", { name: "删除 Alice 的评论" })).toBeVisible();
 });

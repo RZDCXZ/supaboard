@@ -5,6 +5,11 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { InlineAlert } from "@/components/feedback/inline-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ActivityTimeline } from "@/features/activity/activity-timeline";
+import { getWorkspaceActivityPage } from "@/features/activity/queries";
+import { parseWorkspaceViewSearchParams } from "@/features/activity/search-params";
+import { WorkspaceTabs } from "@/features/activity/workspace-tabs";
+import { getTaskComments } from "@/features/comments/queries";
 import {
   getWorkspaceTask,
   getWorkspaceTaskMembers,
@@ -40,6 +45,7 @@ export default async function WorkspacePage({
 }) {
   const [{ workspaceId }, rawSearchParams] = await Promise.all([params, searchParams]);
   const filters = parseTaskSearchParams(rawSearchParams);
+  const workspaceView = parseWorkspaceViewSearchParams(rawSearchParams);
   const supabase = await createClient();
   const workspace = await getWorkspaceById(supabase, workspaceId).catch((error) => {
     if (error instanceof WorkspaceQueryError) return null;
@@ -62,20 +68,10 @@ export default async function WorkspacePage({
     );
   }
 
-  const [taskPageResult, membersResult, statsResult, selectedTaskResult] =
-    await Promise.allSettled([
-      getWorkspaceTaskPage(supabase, workspaceId, filters),
-      getWorkspaceTaskMembers(supabase, workspaceId),
-      getWorkspaceTaskStats(supabase, workspaceId),
-      filters.taskId
-        ? getWorkspaceTask(supabase, workspaceId, filters.taskId)
-        : Promise.resolve(null),
-    ]);
-
   const header = (
     <PageHeader
       title={workspace.name}
-      description="创建、筛选和维护工作区任务"
+      description="创建、筛选和维护任务，查看自动活动记录"
       actions={
         <div className="flex items-center gap-2">
           <Button asChild variant="outline">
@@ -89,10 +85,88 @@ export default async function WorkspacePage({
     />
   );
 
+  if (workspaceView.tab === "activity") {
+    const activityResult = await getWorkspaceActivityPage(
+      supabase,
+      workspaceId,
+      workspaceView.activityPage,
+    ).then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      () => ({ status: "rejected" as const }),
+    );
+    const currentParams = toUrlSearchParams(rawSearchParams);
+    currentParams.set("tab", "activity");
+    currentParams.delete("task");
+    const retryQuery = currentParams.toString();
+    const retryHref = `/app/workspaces/${workspaceId}${retryQuery ? `?${retryQuery}` : ""}`;
+
+    if (activityResult.status === "rejected") {
+      return (
+        <main>
+          {header}
+          <WorkspaceTabs tab="activity" />
+          <ActivityTimeline
+            page={null}
+            error
+            loadMoreHref={null}
+            retryHref={retryHref}
+          />
+        </main>
+      );
+    }
+
+    const activityPage = activityResult.value;
+    const totalBatches = Math.max(
+      1,
+      Math.ceil(activityPage.total / activityPage.pageSize),
+    );
+    if (workspaceView.activityPage > totalBatches) {
+      if (totalBatches <= 1) currentParams.delete("activityPage");
+      else currentParams.set("activityPage", String(totalBatches));
+      const canonicalQuery = currentParams.toString();
+      redirect(
+        `/app/workspaces/${workspaceId}${canonicalQuery ? `?${canonicalQuery}` : ""}`,
+      );
+    }
+
+    let loadMoreHref: string | null = null;
+    if (activityPage.hasMore) {
+      const loadMoreParams = new URLSearchParams(currentParams);
+      loadMoreParams.set("activityPage", String(activityPage.batch + 1));
+      loadMoreHref = `/app/workspaces/${workspaceId}?${loadMoreParams.toString()}`;
+    }
+
+    return (
+      <main>
+        {header}
+        <WorkspaceTabs tab="activity" />
+        <ActivityTimeline
+          page={activityPage}
+          loadMoreHref={loadMoreHref}
+          retryHref={retryHref}
+        />
+      </main>
+    );
+  }
+
+  const [taskPageResult, membersResult, statsResult, selectedTaskResult, commentsResult] =
+    await Promise.allSettled([
+      getWorkspaceTaskPage(supabase, workspaceId, filters),
+      getWorkspaceTaskMembers(supabase, workspaceId),
+      getWorkspaceTaskStats(supabase, workspaceId),
+      filters.taskId
+        ? getWorkspaceTask(supabase, workspaceId, filters.taskId)
+        : Promise.resolve(null),
+      filters.taskId
+        ? getTaskComments(supabase, workspaceId, filters.taskId)
+        : Promise.resolve([]),
+    ]);
+
   if (taskPageResult.status === "rejected") {
     return (
       <main>
         {header}
+        <WorkspaceTabs tab="tasks" />
         <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
           <TaskStats
             stats={statsResult.status === "fulfilled" ? statsResult.value : null}
@@ -132,12 +206,17 @@ export default async function WorkspacePage({
   return (
     <main>
       {header}
+      <WorkspaceTabs tab="tasks" />
       <TaskWorkspace
         key={workspaceKey}
         workspaceId={workspaceId}
         filters={filters}
         taskPage={taskPage}
         members={membersResult.status === "fulfilled" ? membersResult.value : []}
+        comments={commentsResult.status === "fulfilled" ? commentsResult.value : []}
+        commentsError={Boolean(filters.taskId) && commentsResult.status === "rejected"}
+        currentUserId={workspace.currentUserId}
+        workspaceRole={workspace.role}
         membersError={membersResult.status === "rejected"}
         stats={statsResult.status === "fulfilled" ? statsResult.value : null}
         statsError={statsResult.status === "rejected"}

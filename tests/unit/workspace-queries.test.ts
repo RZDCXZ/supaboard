@@ -30,6 +30,7 @@ test("getWorkspaceById derives the current role from the protected workspace row
   await expect(getWorkspaceById(supabase as never, "workspace-1")).resolves.toEqual({
     id: "11111111-1111-4111-8111-111111111111",
     name: "Alpha",
+    currentUserId: ownerId,
     role: "owner",
     updatedAt: "2026-07-10T00:00:00Z",
   });

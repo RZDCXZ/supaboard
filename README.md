@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 7——任务纵向切片。邮箱 Auth、SSR 会话、Profile 和工作区能力保持可用；工作区成员可以创建、查看、筛选、分页、修改和删除任务，并查看受 RLS 保护的状态统计。任务约束、负责人校验、授权、统计 RPC/视图、Server Actions 和页面流程已由 pgTAP、Vitest 和 Playwright 覆盖。
+> 当前进度：已完成阶段 8——评论与活动记录。邮箱 Auth、SSR 会话、Profile、工作区和任务能力保持可用；成员可以在任务抽屉发表评论，作者或 Owner 可以按权限删除评论。任务创建、状态变化和删除由数据库 trigger 写入只读活动记录，复合外键、显式授权、RLS、Server Actions 和页面流程已由 pgTAP、Vitest 和 Playwright 覆盖。
 
 ## 目标能力
 
@@ -109,7 +109,9 @@ pnpm dev
 ├── public/               # 静态资源
 ├── src/app/              # Next.js App Router
 ├── src/components/       # shadcn/ui 基础组件、反馈组件与应用框架
+├── src/features/activity/ # 任务活动查询、分页与只读时间线
 ├── src/features/auth/    # Auth 校验、Server Actions 与表单
+├── src/features/comments/ # 评论校验、查询、Server Actions 与界面
 ├── src/features/tasks/   # 任务校验、查询、Server Actions、状态与界面
 ├── src/features/workspaces/ # 工作区校验、查询、Server Action 与组件
 ├── src/lib/supabase/     # Browser/Server Client 工厂与环境校验

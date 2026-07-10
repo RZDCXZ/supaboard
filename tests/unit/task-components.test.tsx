@@ -150,6 +150,9 @@ describe("task components", () => {
         workspaceId={workspaceId}
         task={task()}
         members={members}
+        comments={[]}
+        currentUserId={userId}
+        workspaceRole="owner"
         onOpenChange={vi.fn()}
         onUpdated={vi.fn()}
         onDeleted={vi.fn()}
@@ -160,5 +163,6 @@ describe("task components", () => {
     expect(screen.getByLabelText("标题")).toHaveValue("Ship stage 7");
     expect(screen.getByLabelText("描述")).toHaveValue("Complete the task slice");
     expect(screen.getByRole("button", { name: "更多操作" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "评论" })).toBeVisible();
   });
 });

@@ -35,7 +35,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { CommentSection } from "@/features/comments/comment-section";
+import type { CommentItem } from "@/features/comments/types";
+import type { WorkspaceRole } from "@/features/workspaces/types";
 
 import { deleteTask, updateTask } from "./actions";
 import type {
@@ -53,6 +57,10 @@ export function TaskDrawer({
   workspaceId,
   task,
   members,
+  comments,
+  commentsError = false,
+  currentUserId,
+  workspaceRole,
   onOpenChange,
   onUpdated,
   onDeleted,
@@ -61,6 +69,10 @@ export function TaskDrawer({
   workspaceId: string;
   task: TaskItem;
   members: readonly TaskMemberOption[];
+  comments: readonly CommentItem[];
+  commentsError?: boolean;
+  currentUserId: string;
+  workspaceRole: WorkspaceRole;
   onOpenChange: (open: boolean) => void;
   onUpdated: (task: TaskItem) => void;
   onDeleted: (taskId: string) => void;
@@ -295,6 +307,17 @@ export function TaskDrawer({
               <FieldError>{error?.fields?.assigneeId}</FieldError>
             </Field>
           </FieldGroup>
+
+          <Separator />
+
+          <CommentSection
+            workspaceId={workspaceId}
+            taskId={currentTask.id}
+            comments={comments}
+            commentsError={commentsError}
+            currentUserId={currentUserId}
+            workspaceRole={workspaceRole}
+          />
         </div>
       </AppDrawer>
 
@@ -303,7 +326,7 @@ export function TaskDrawer({
           <AlertDialogHeader>
             <AlertDialogTitle>删除“{currentTask.title}”？</AlertDialogTitle>
             <AlertDialogDescription>
-              任务记录会被永久删除。当前阶段尚未接入附件对象清理。
+              任务及其评论会被永久删除，活动记录会保留。当前阶段尚未接入附件对象清理。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

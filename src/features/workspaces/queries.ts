@@ -93,6 +93,7 @@ export async function getWorkspaceById(
   return {
     id: data.id,
     name: data.name,
+    currentUserId: userResult.data.user.id,
     role: data.owner_id === userResult.data.user.id ? "owner" : "member",
     updatedAt: data.updated_at,
   };

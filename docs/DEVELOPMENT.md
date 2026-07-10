@@ -639,6 +639,8 @@ git add supabase src/features/comments src/features/activity src/features/tasks 
 git commit -m "feat: add comments and activity logs"
 ```
 
+> 实施状态（2026-07-10）：已完成。已新增 `comments` 与 `activity_logs` 表、任务/工作区复合外键、评论不可重绑约束、显式 `GRANT`、成员/作者/Owner RLS，以及位于 `private` schema 的受限活动 trigger function。任务抽屉已接入评论列表、字数校验、提交和权限删除；工作区已接入只读活动页签、每批 20 条加载更多和系统 actor 回退。跨租户评论、非法作者、客户端伪造活动、状态去重、删除后日志保留及浏览器评论/活动流程均已覆盖；Realtime、附件和成员页仍按后续阶段实现。
+
 ## 11. 阶段 9：成员读取与稳定测试身份
 
 ### 目标

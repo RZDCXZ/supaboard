@@ -5,6 +5,8 @@ import { useReducer, useState, useTransition } from "react";
 
 import { InlineAlert } from "@/components/feedback/inline-alert";
 import { Button } from "@/components/ui/button";
+import type { CommentItem } from "@/features/comments/types";
+import type { WorkspaceRole } from "@/features/workspaces/types";
 
 import { CreateTaskDialog } from "./create-task-dialog";
 import { taskReducer } from "./reducer";
@@ -59,6 +61,10 @@ export function TaskWorkspace({
   filters,
   taskPage,
   members,
+  comments,
+  commentsError = false,
+  currentUserId,
+  workspaceRole,
   membersError = false,
   stats,
   statsError,
@@ -68,6 +74,10 @@ export function TaskWorkspace({
   filters: TaskFilters;
   taskPage: TaskPage;
   members: readonly TaskMemberOption[];
+  comments: readonly CommentItem[];
+  commentsError?: boolean;
+  currentUserId: string;
+  workspaceRole: WorkspaceRole;
   membersError?: boolean;
   stats: WorkspaceTaskStats | null;
   statsError: boolean;
@@ -223,6 +233,10 @@ export function TaskWorkspace({
           workspaceId={workspaceId}
           task={drawerTask}
           members={members}
+          comments={comments}
+          commentsError={commentsError}
+          currentUserId={currentUserId}
+          workspaceRole={workspaceRole}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) closeTask();
           }}
