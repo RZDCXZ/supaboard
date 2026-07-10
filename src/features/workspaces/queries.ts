@@ -72,23 +72,28 @@ export async function getWorkspaceById(
   supabase: SupabaseClient<Database>,
   workspaceId: string,
 ): Promise<WorkspaceDetail | null> {
-  const { data, error } = await supabase
-    .from("workspaces")
-    .select("id, name, updated_at")
-    .eq("id", workspaceId)
-    .maybeSingle();
+  const [userResult, workspaceResult] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("workspaces")
+      .select("id, name, owner_id, updated_at")
+      .eq("id", workspaceId)
+      .maybeSingle(),
+  ]);
+  const { data, error } = workspaceResult;
 
-  if (error) {
+  if (error || userResult.error) {
     throw new WorkspaceQueryError();
   }
 
-  if (!data) {
+  if (!data || !userResult.data.user) {
     return null;
   }
 
   return {
     id: data.id,
     name: data.name,
+    role: data.owner_id === userResult.data.user.id ? "owner" : "member",
     updatedAt: data.updated_at,
   };
 }

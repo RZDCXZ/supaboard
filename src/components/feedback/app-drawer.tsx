@@ -14,12 +14,14 @@ export function AppDrawer({
   title,
   description,
   open,
+  closeDisabled = false,
   onOpenChange,
   children,
 }: {
   title: string;
   description?: string;
   open: boolean;
+  closeDisabled?: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
@@ -30,6 +32,13 @@ export function AppDrawer({
       <SheetContent
         side="right"
         className="w-full gap-0 sm:max-w-[480px]"
+        showCloseButton={!closeDisabled}
+        onEscapeKeyDown={(event) => {
+          if (closeDisabled) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (closeDisabled) event.preventDefault();
+        }}
         onOpenAutoFocus={() => {
           returnFocusRef.current = document.activeElement as HTMLElement | null;
         }}

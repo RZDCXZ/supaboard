@@ -11,6 +11,7 @@ export type WorkspaceListItem = {
 export type WorkspaceDetail = {
   id: string;
   name: string;
+  role: WorkspaceRole;
   updatedAt: string;
 };
 

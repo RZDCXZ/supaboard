@@ -571,6 +571,8 @@ git add supabase src/features/tasks src/app/app/workspaces tests
 git commit -m "feat: add task management slice"
 ```
 
+> 实施状态（2026-07-10）：已完成。已新增 `tasks` 表、字段约束、不可重绑与负责人校验 trigger、列表/筛选索引、`get_workspace_stats` RPC、`security_invoker` 统计视图、显式 `GRANT` 和成员 RLS。工作区详情页已接入任务统计、状态/负责人筛选、每页 20 条分页、状态分组、创建弹窗和详情抽屉；任务输入、查询、Server Actions、reducer、三身份权限及浏览器 CRUD 流程均已覆盖。评论、附件、活动、成员管理和 Realtime 仍按后续阶段实现。
+
 ## 10. 阶段 8：评论与活动记录
 
 ### 目标

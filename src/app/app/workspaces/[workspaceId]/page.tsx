@@ -1,31 +1,48 @@
-import { FolderKanbanIcon } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/app-shell/page-header";
 import { InlineAlert } from "@/components/feedback/inline-alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+  getWorkspaceTask,
+  getWorkspaceTaskMembers,
+  getWorkspaceTaskPage,
+  getWorkspaceTaskStats,
+} from "@/features/tasks/queries";
+import {
+  parseTaskSearchParams,
+  type TaskSearchParams,
+} from "@/features/tasks/search-params";
+import { TaskStats } from "@/features/tasks/task-stats";
+import { TaskWorkspace } from "@/features/tasks/task-workspace";
 import { getWorkspaceById, WorkspaceQueryError } from "@/features/workspaces/queries";
 import { createClient } from "@/lib/supabase/server";
 
+function toUrlSearchParams(searchParams: TaskSearchParams) {
+  const params = new URLSearchParams();
+
+  Object.entries(searchParams).forEach(([key, value]) => {
+    const first = Array.isArray(value) ? value[0] : value;
+    if (first) params.set(key, first);
+  });
+
+  return params;
+}
+
 export default async function WorkspacePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
+  searchParams: Promise<TaskSearchParams>;
 }) {
-  const { workspaceId } = await params;
+  const [{ workspaceId }, rawSearchParams] = await Promise.all([params, searchParams]);
+  const filters = parseTaskSearchParams(rawSearchParams);
   const supabase = await createClient();
   const workspace = await getWorkspaceById(supabase, workspaceId).catch((error) => {
-    if (error instanceof WorkspaceQueryError) {
-      return null;
-    }
-
+    if (error instanceof WorkspaceQueryError) return null;
     throw error;
   });
 
@@ -45,20 +62,87 @@ export default async function WorkspacePage({
     );
   }
 
+  const [taskPageResult, membersResult, statsResult, selectedTaskResult] =
+    await Promise.allSettled([
+      getWorkspaceTaskPage(supabase, workspaceId, filters),
+      getWorkspaceTaskMembers(supabase, workspaceId),
+      getWorkspaceTaskStats(supabase, workspaceId),
+      filters.taskId
+        ? getWorkspaceTask(supabase, workspaceId, filters.taskId)
+        : Promise.resolve(null),
+    ]);
+
+  const header = (
+    <PageHeader
+      title={workspace.name}
+      description="创建、筛选和维护工作区任务"
+      actions={
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/app">返回总览</Link>
+          </Button>
+          <Badge variant={workspace.role === "owner" ? "default" : "secondary"}>
+            {workspace.role === "owner" ? "Owner" : "成员"}
+          </Badge>
+        </div>
+      }
+    />
+  );
+
+  if (taskPageResult.status === "rejected") {
+    return (
+      <main>
+        {header}
+        <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+          <TaskStats
+            stats={statsResult.status === "fulfilled" ? statsResult.value : null}
+            error={statsResult.status === "rejected"}
+          />
+          <InlineAlert variant="error" title="任务列表加载失败">
+            暂时无法读取任务，请稍后重试。
+          </InlineAlert>
+          <Button asChild variant="outline" className="w-fit">
+            <Link href={`/app/workspaces/${workspaceId}`}>重试</Link>
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  const taskPage = taskPageResult.value;
+  if (filters.page > taskPage.totalPages) {
+    const canonical = toUrlSearchParams(rawSearchParams);
+    if (taskPage.totalPages <= 1) canonical.delete("page");
+    else canonical.set("page", String(taskPage.totalPages));
+    canonical.delete("task");
+    const query = canonical.toString();
+    redirect(`/app/workspaces/${workspaceId}${query ? `?${query}` : ""}`);
+  }
+
+  const selectedTask =
+    selectedTaskResult.status === "fulfilled" ? selectedTaskResult.value : null;
+  const workspaceKey = [
+    workspaceId,
+    filters.status,
+    filters.assignee,
+    filters.page,
+    selectedTask?.id ?? "closed",
+  ].join(":");
+
   return (
     <main>
-      <PageHeader title={workspace.name} description="工作区任务将在下一阶段接入" />
-      <div className="mx-auto w-full max-w-[960px] px-4 py-12 sm:px-6 lg:px-8">
-        <Empty className="min-h-64 border border-border bg-card">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <FolderKanbanIcon aria-hidden="true" />
-            </EmptyMedia>
-            <EmptyTitle>当前工作区还没有任务</EmptyTitle>
-            <EmptyDescription>任务列表和维护流程将在阶段 7 接入。</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </div>
+      {header}
+      <TaskWorkspace
+        key={workspaceKey}
+        workspaceId={workspaceId}
+        filters={filters}
+        taskPage={taskPage}
+        members={membersResult.status === "fulfilled" ? membersResult.value : []}
+        membersError={membersResult.status === "rejected"}
+        stats={statsResult.status === "fulfilled" ? statsResult.value : null}
+        statsError={statsResult.status === "rejected"}
+        selectedTask={selectedTask}
+      />
     </main>
   );
 }
