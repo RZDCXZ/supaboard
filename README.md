@@ -86,7 +86,7 @@ pnpm dev
 pnpm exec supabase functions serve delete-task
 ```
 
-默认访问地址为 <http://localhost:3000>。
+默认访问地址为 <http://localhost:3000>，也可使用 <http://127.0.0.1:3000>。开发环境的 Next.js 静态资源固定从 `localhost` 加载，避免本机代理拦截 HMR WebSocket。
 
 ## 本地演示账号
 

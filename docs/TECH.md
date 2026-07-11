@@ -168,6 +168,8 @@ pnpm exec supabase test db
 
 CLI 命令和参数在执行前通过对应的 `--help` 确认，不凭记忆猜测。新迁移始终通过 `supabase migration new` 创建文件名。
 
+开发服务器支持通过 `localhost:3000` 或 `127.0.0.1:3000` 访问。非生产环境使用 `http://localhost:3000` 作为 Next.js `assetPrefix`，并允许 `127.0.0.1` 开发来源，避免本机 HTTP 代理拦截 Turbopack HMR WebSocket；生产构建不设置该前缀。
+
 ## 6. 数据模型
 
 所有业务表位于 `public` schema，使用 `timestamptz` 和数据库生成的 UUID。所有暴露表显式授予所需角色访问权限并启用 RLS；Data API 的 schema exposure 与 RLS 是两层独立配置。
