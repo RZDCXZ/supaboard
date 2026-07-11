@@ -8,7 +8,7 @@ export type ActivityAction =
 export type ActivityActor = {
   id: string;
   displayName: string;
-  avatarPath: string | null;
+  avatarUrl: string | null;
 };
 
 export type ActivityItem = {

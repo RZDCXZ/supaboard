@@ -2,7 +2,7 @@ import Link from "next/link";
 import { UsersIcon } from "lucide-react";
 
 import { InlineAlert } from "@/components/feedback/inline-alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,6 +68,12 @@ export function MemberList({
             className="flex min-h-20 items-center gap-4 border-b px-4 py-3 last:border-b-0 sm:px-5"
           >
             <Avatar size="lg" aria-label={`${member.displayName} 的头像`}>
+              {member.avatarUrl ? (
+                <AvatarImage
+                  src={member.avatarUrl}
+                  alt={`${member.displayName}的头像`}
+                />
+              ) : null}
               <AvatarFallback>{initials(member.displayName)}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">

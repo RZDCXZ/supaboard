@@ -34,7 +34,7 @@ function taskRow() {
     assignee: {
       id: userId,
       display_name: "Alice",
-      avatar_path: null,
+      avatar_path: `${userId}/avatar.png`,
     },
   };
 }
@@ -57,7 +57,16 @@ describe("task queries", () => {
     builder.is.mockReturnValue(builder);
     builder.order.mockReturnValue(builder);
     builder.range.mockResolvedValue({ data: [taskRow()], error: null, count: 45 });
-    const supabase = { from: vi.fn(() => builder) };
+    const supabase = {
+      from: vi.fn(() => builder),
+      storage: {
+        from: vi.fn(() => ({
+          getPublicUrl: vi.fn((path: string) => ({
+            data: { publicUrl: `https://storage.test/${path}` },
+          })),
+        })),
+      },
+    };
 
     const result = await getWorkspaceTaskPage(
       supabase as never,
@@ -76,6 +85,9 @@ describe("task queries", () => {
     expect(builder.range).toHaveBeenCalledWith(100, 199);
     expect(result).toMatchObject({ page: 2, pageSize: 100, total: 45, totalPages: 1 });
     expect(result.tasks[0]?.assignee?.displayName).toBe("Alice");
+    expect(result.tasks[0]?.assignee?.avatarUrl).toBe(
+      `https://storage.test/${userId}/avatar.png`,
+    );
   });
 
   it("filters by a concrete assignee", async () => {

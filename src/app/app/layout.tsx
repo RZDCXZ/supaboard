@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell/app-shell";
+import { getAvatarPublicUrl } from "@/features/storage/avatar";
 import { getCurrentUserWorkspaces } from "@/features/workspaces/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,7 +30,7 @@ export default async function ProtectedAppLayout({
     <AppShell
       user={{
         displayName: profile?.display_name ?? "用户",
-        avatarUrl: null,
+        avatarUrl: getAvatarPublicUrl(supabase, profile?.avatar_path ?? null),
       }}
       workspaces={workspaces}
     >

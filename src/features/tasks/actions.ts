@@ -143,7 +143,10 @@ export async function createTask(input: unknown): Promise<ActionResult<TaskItem>
   if (error || !data) return databaseError("create", error);
 
   revalidateWorkspace(parsed.data.workspaceId);
-  return { ok: true, data: mapTaskRow(data as TaskRow) };
+  return {
+    ok: true,
+    data: mapTaskRow(data as TaskRow, authenticated.supabase),
+  };
 }
 
 export async function updateTask(input: unknown): Promise<ActionResult<TaskItem>> {
@@ -170,7 +173,10 @@ export async function updateTask(input: unknown): Promise<ActionResult<TaskItem>
   if (!data) return databaseError("update", { code: "42501" });
 
   revalidateWorkspace(parsed.data.workspaceId);
-  return { ok: true, data: mapTaskRow(data as TaskRow) };
+  return {
+    ok: true,
+    data: mapTaskRow(data as TaskRow, authenticated.supabase),
+  };
 }
 
 export async function deleteTask(input: unknown): Promise<ActionResult<string>> {

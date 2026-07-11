@@ -2,7 +2,7 @@
 
 import { ChevronDownIcon, ClipboardListIcon, PlusIcon } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +54,12 @@ function TaskRow({ task, onOpen }: { task: TaskItem; onOpen: () => void }) {
           {task.assignee ? (
             <span className="inline-flex items-center gap-1.5">
               <Avatar size="sm">
+                {task.assignee.avatarUrl ? (
+                  <AvatarImage
+                    src={task.assignee.avatarUrl}
+                    alt={`${task.assignee.displayName}的头像`}
+                  />
+                ) : null}
                 <AvatarFallback>{initials(task.assignee.displayName)}</AvatarFallback>
               </Avatar>
               {task.assignee.displayName}

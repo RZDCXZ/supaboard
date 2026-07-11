@@ -26,7 +26,7 @@ function activityRow(overrides: Record<string, unknown> = {}) {
     actor: {
       id: actorId,
       display_name: "Alice",
-      avatar_path: null,
+      avatar_path: `${actorId}/avatar.jpg`,
     },
     ...overrides,
   };
@@ -48,7 +48,16 @@ describe("activity queries", () => {
       error: null,
       count: 45,
     });
-    const supabase = { from: vi.fn(() => builder) };
+    const supabase = {
+      from: vi.fn(() => builder),
+      storage: {
+        from: vi.fn(() => ({
+          getPublicUrl: vi.fn((path: string) => ({
+            data: { publicUrl: `https://storage.test/${path}` },
+          })),
+        })),
+      },
+    };
 
     const result = await getWorkspaceActivityPage(
       supabase as never,
@@ -78,7 +87,10 @@ describe("activity queries", () => {
       title: "Ship stage 8",
       fromStatus: "todo",
       toStatus: "done",
-      actor: { displayName: "Alice" },
+      actor: {
+        displayName: "Alice",
+        avatarUrl: `https://storage.test/${actorId}/avatar.jpg`,
+      },
     });
   });
 
@@ -86,6 +98,7 @@ describe("activity queries", () => {
     expect(
       mapActivityRow(
         activityRow({ actor_id: null, actor: null, metadata: ["bad"] }),
+        {} as never,
       ),
     ).toMatchObject({
       actor: null,

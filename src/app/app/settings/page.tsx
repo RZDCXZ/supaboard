@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/app-shell/page-header";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Card,
   CardContent,
@@ -11,6 +10,8 @@ import {
 } from "@/components/ui/card";
 import { logout } from "@/features/auth/actions";
 import { LogoutButton } from "@/features/auth/logout-button";
+import { ProfileSettingsForm } from "@/features/profiles/profile-settings-form";
+import { getAvatarPublicUrl } from "@/features/storage/avatar";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function SettingsPage() {
@@ -25,11 +26,12 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name")
+    .select("display_name, avatar_path")
     .eq("id", user.id)
     .single();
   const displayName = profile?.display_name ?? "用户";
-  const initial = displayName.trim().charAt(0).toLocaleUpperCase() || "用";
+  const avatarPath = profile?.avatar_path ?? null;
+  const avatarUrl = getAvatarPublicUrl(supabase, avatarPath);
 
   return (
     <main>
@@ -40,14 +42,13 @@ export default async function SettingsPage() {
             <CardTitle>个人资料</CardTitle>
             <CardDescription>其他协作者将看到此昵称和头像。</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center gap-4">
-            <Avatar size="lg">
-              <AvatarFallback>{initial}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium">{displayName}</p>
-              <p className="text-sm text-muted-foreground">公开昵称</p>
-            </div>
+          <CardContent>
+            <ProfileSettingsForm
+              userId={user.id}
+              displayName={displayName}
+              avatarPath={avatarPath}
+              avatarUrl={avatarUrl}
+            />
           </CardContent>
         </Card>
         <Card>

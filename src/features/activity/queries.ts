@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { TaskStatus } from "@/features/tasks/types";
 import type { Database, Json } from "@/types/database";
+import { getAvatarPublicUrl } from "@/features/storage/avatar";
 
 import type { ActivityAction, ActivityItem, ActivityPage } from "./types";
 
@@ -61,7 +62,10 @@ function metadataObject(metadata: Json) {
     : null;
 }
 
-export function mapActivityRow(row: ActivityRow): ActivityItem {
+export function mapActivityRow(
+  row: ActivityRow,
+  supabase: SupabaseClient<Database>,
+): ActivityItem {
   const metadata = metadataObject(row.metadata);
 
   return {
@@ -71,7 +75,7 @@ export function mapActivityRow(row: ActivityRow): ActivityItem {
       ? {
           id: row.actor.id,
           displayName: row.actor.display_name,
-          avatarPath: row.actor.avatar_path,
+          avatarUrl: getAvatarPublicUrl(supabase, row.actor.avatar_path),
         }
       : null,
     action: toActivityAction(row.action),
@@ -108,7 +112,9 @@ export async function getWorkspaceActivityPage(
 
   const total = count ?? 0;
   return {
-    activities: ((data ?? []) as ActivityRow[]).map(mapActivityRow),
+    activities: ((data ?? []) as ActivityRow[]).map((row) =>
+      mapActivityRow(row, supabase),
+    ),
     batch,
     pageSize: ACTIVITY_PAGE_SIZE,
     total,

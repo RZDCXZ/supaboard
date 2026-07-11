@@ -30,13 +30,22 @@ describe("comment queries", () => {
             author: {
               id: authorId,
               display_name: "Alice",
-              avatar_path: null,
+              avatar_path: `${authorId}/avatar.webp`,
             },
           },
         ],
         error: null,
       });
-    const supabase = { from: vi.fn(() => builder) };
+    const supabase = {
+      from: vi.fn(() => builder),
+      storage: {
+        from: vi.fn(() => ({
+          getPublicUrl: vi.fn((path: string) => ({
+            data: { publicUrl: `https://storage.test/${path}` },
+          })),
+        })),
+      },
+    };
 
     await expect(
       getTaskComments(supabase as never, workspaceId, taskId),
@@ -45,7 +54,11 @@ describe("comment queries", () => {
         id: "44444444-4444-4444-8444-444444444444",
         taskId,
         workspaceId,
-        author: { id: authorId, displayName: "Alice", avatarPath: null },
+        author: {
+          id: authorId,
+          displayName: "Alice",
+          avatarUrl: `https://storage.test/${authorId}/avatar.webp`,
+        },
         body: "Hello",
         createdAt: "2026-07-10T01:00:00Z",
         updatedAt: "2026-07-10T01:00:00Z",

@@ -2,7 +2,7 @@ import { ActivityIcon } from "lucide-react";
 import Link from "next/link";
 
 import { InlineAlert } from "@/components/feedback/inline-alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -105,6 +105,12 @@ export function ActivityTimeline({
                 {page.activities.map((activity) => (
                   <li key={activity.id} className="flex gap-3">
                     <Avatar size="sm">
+                      {activity.actor?.avatarUrl ? (
+                        <AvatarImage
+                          src={activity.actor.avatarUrl}
+                          alt={`${activity.actor.displayName}的头像`}
+                        />
+                      ) : null}
                       <AvatarFallback>{avatarFallback(activity)}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">

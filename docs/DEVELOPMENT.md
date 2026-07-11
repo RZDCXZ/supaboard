@@ -739,10 +739,11 @@ git commit -m "test: add stable multi-tenant fixtures"
 
 ```bash
 pnpm exec supabase db reset
-pnpm exec supabase test db
+pnpm exec supabase test db --local
 pnpm test
 pnpm exec playwright test tests/e2e/avatar.spec.ts
 pnpm typecheck
+pnpm lint
 ```
 
 预期结果：合法头像可公开访问并可替换；跨用户写入和删除被拒绝；非法文件在上传前被拦截。
@@ -770,6 +771,8 @@ pnpm typecheck
 git add supabase src/features/storage src/features/profiles src/app/app/settings tests
 git commit -m "feat: add public avatar storage"
 ```
+
+> 实施状态（2026-07-11）：已完成。迁移创建了公开 `avatars` bucket，并在 bucket 层限制 JPEG、PNG、WebP 与 `2 MB`；`storage.objects` 的 INSERT、SELECT、UPDATE、DELETE policy 同时约束 bucket、用户首级目录和固定头像文件名，`profiles.avatar_path` 也通过约束防止写入其他用户路径。设置页支持昵称保存、浏览器用户会话直传、upsert、失败重试和跨扩展成功后清理旧对象；公开头像 URL 已接入侧栏、成员、任务、评论与活动。pgTAP、Vitest 和 Playwright 覆盖合法替换、非法文件、公开读取及跨用户覆盖/删除无效。
 
 ## 13. 阶段 11：私有任务附件 Storage
 

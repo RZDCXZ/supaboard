@@ -29,7 +29,7 @@ function comment(
     id,
     taskId,
     workspaceId,
-    author: { id: authorId, displayName, avatarPath: null },
+    author: { id: authorId, displayName, avatarUrl: null },
     body,
     createdAt: "2026-07-10T01:00:00Z",
     updatedAt: "2026-07-10T01:00:00Z",

@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 9——成员读取与稳定测试身份。工作区成员页只展示公开 Profile、角色和加入时间，任务负责人复用同一成员查询；Alice、Bob、Charlie 三身份的 Seed、pgTAP helper 与 Playwright Admin 夹具可重复验证成员读取和跨租户隔离。邮箱 Auth、任务、评论和只读活动记录能力保持可用。
+> 当前进度：已完成阶段 10——公共头像 Storage。登录用户可修改公开昵称，并通过普通用户会话上传、替换自己的 JPEG、PNG 或 WebP 头像；`avatars` 公共桶、固定路径约束和 Storage RLS 会阻止跨用户写入或删除。头像已接入设置页、侧栏、成员、任务、评论和活动视图，Auth、工作区、任务、评论及多租户隔离能力保持可用。
 
 ## 目标能力
 
@@ -96,7 +96,7 @@ pnpm dev
 
 ## E2E 测试配置
 
-工作区、任务、评论/活动和成员 E2E 会在 Node.js 测试进程中使用本地 Secret Key 创建并清理临时用户。先复制测试模板：
+工作区、任务、评论/活动、成员和头像 E2E 会在 Node.js 测试进程中使用本地 Secret Key 创建并清理临时用户及其测试数据。先复制测试模板：
 
 ```bash
 cp .env.test.example .env.test.local
@@ -141,6 +141,8 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 ├── src/features/auth/    # Auth 校验、Server Actions 与表单
 ├── src/features/comments/ # 评论校验、查询、Server Actions 与界面
 ├── src/features/members/ # 最小成员 DTO、查询与只读成员列表
+├── src/features/profiles/ # 公开昵称、头像路径 Action 与设置表单
+├── src/features/storage/ # 头像文件校验、固定路径与公共 URL
 ├── src/features/tasks/   # 任务校验、查询、Server Actions、状态与界面
 ├── src/features/workspaces/ # 工作区校验、查询、Server Action 与组件
 ├── src/lib/supabase/     # Browser/Server Client 工厂与环境校验

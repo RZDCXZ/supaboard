@@ -24,7 +24,7 @@ vi.mock("@/features/tasks/actions", () => ({
 }));
 
 const members: TaskMemberOption[] = [
-  { id: userId, displayName: "Alice", avatarPath: null },
+  { id: userId, displayName: "Alice", avatarUrl: null },
 ];
 
 function task(overrides: Partial<TaskItem> = {}): TaskItem {
