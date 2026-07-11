@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageSquareIcon, Trash2Icon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useReducer, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { InlineAlert } from "@/components/feedback/inline-alert";
@@ -27,18 +27,15 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import type { WorkspaceRole } from "@/features/workspaces/types";
+import type { WorkspaceChange } from "@/features/realtime/reducer";
 import { formatFullDateTime, formatRelativeDateTime } from "@/lib/date-time";
 
 import { createComment, deleteComment } from "./actions";
+import { commentReducer } from "./reducer";
 import type { CommentItem } from "./types";
 
 function avatarFallback(displayName: string) {
   return displayName.trim().slice(0, 1).toUpperCase() || "用";
-}
-
-function byCreatedAt(a: CommentItem, b: CommentItem) {
-  const byDate = a.createdAt.localeCompare(b.createdAt);
-  return byDate === 0 ? a.id.localeCompare(b.id) : byDate;
 }
 
 export function CommentSection({
@@ -46,6 +43,7 @@ export function CommentSection({
   taskId,
   comments,
   commentsError = false,
+  realtimeChange = null,
   currentUserId,
   workspaceRole,
 }: {
@@ -53,11 +51,15 @@ export function CommentSection({
   taskId: string;
   comments: readonly CommentItem[];
   commentsError?: boolean;
+  realtimeChange?: WorkspaceChange | null;
   currentUserId: string;
   workspaceRole: WorkspaceRole;
 }) {
-  const [currentComments, setCurrentComments] = useState(() =>
-    [...comments].sort(byCreatedAt),
+  const [currentComments, dispatchComments] = useReducer(
+    commentReducer,
+    comments,
+    (initialComments) =>
+      commentReducer([], { type: "replace", comments: initialComments }),
   );
   const [body, setBody] = useState("");
   const [pendingOperation, setPendingOperation] = useState<
@@ -74,6 +76,22 @@ export function CommentSection({
     trimmedBody.length >= 1 &&
     trimmedBody.length <= 2000;
 
+  useEffect(() => {
+    dispatchComments({ type: "replace", comments });
+  }, [comments]);
+
+  useEffect(() => {
+    if (
+      realtimeChange?.table === "comments" &&
+      realtimeChange.eventType === "DELETE"
+    ) {
+      dispatchComments({
+        type: "remove",
+        commentId: realtimeChange.id,
+      });
+    }
+  }, [realtimeChange]);
+
   function submitComment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit) return;
@@ -89,9 +107,7 @@ export function CommentSection({
         return;
       }
 
-      setCurrentComments((current) =>
-        [...current, result.data].sort(byCreatedAt),
-      );
+      dispatchComments({ type: "upsert", comment: result.data });
       setBody("");
       toast.success("评论已发表");
     });
@@ -109,9 +125,7 @@ export function CommentSection({
         return;
       }
 
-      setCurrentComments((current) =>
-        current.filter((comment) => comment.id !== result.data),
-      );
+      dispatchComments({ type: "remove", commentId: result.data });
       toast.success("评论已删除");
     });
   }

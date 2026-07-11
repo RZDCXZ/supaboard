@@ -862,7 +862,7 @@ git commit -m "feat: add private task attachments"
 ### 开发步骤
 
 1. 先查看当前 Realtime 官方文档和本地配置，再通过迁移幂等地把 tasks、comments 加入 publication。
-2. 客户端只订阅当前 workspace_id，切换工作区或卸载组件时调用 `removeChannel`。
+2. INSERT、UPDATE 的 Postgres Changes 只订阅当前 workspace_id；DELETE 使用工作区私有 Broadcast topic。切换工作区或卸载组件时移除两个 channel。
 3. 为 INSERT、UPDATE、DELETE 建立纯 reducer；按主键去重，DELETE 只依赖主键移除。
 4. 当前分页无法可靠合并事件时，重新获取当前页、统计和必要的详情数据。
 5. channel 状态映射为连接中、已连接、重连和断开；SDK 重连成功后重新获取当前数据。
@@ -904,6 +904,8 @@ git add supabase src/features/realtime src/features/tasks src/features/comments 
 git commit -m "feat: sync tasks and comments in realtime"
 ```
 
+> 实施状态（2026-07-11）：已完成。迁移将 `tasks`、`comments` 幂等加入 `supabase_realtime` publication；INSERT、UPDATE 使用按 `workspace_id` 过滤的 Postgres Changes，DELETE 因官方不可过滤限制改由数据库触发器向 `workspace:{workspaceId}` 私有 topic 发送最小 `{ table, id }` Broadcast。客户端 reducer 处理重复、乱序和 tombstone，事件与断线重连均以服务端重新查询恢复最终状态；两个浏览器上下文已覆盖任务、评论、删除和离线恢复，Charlie 无法加入非成员工作区 topic。
+
 ## 15. 阶段 13：Presence、Broadcast 与 Realtime Authorization
 
 ### 目标
@@ -917,7 +919,7 @@ git commit -m "feat: sync tasks and comments in realtime"
 
 ### 关键文件
 
-- 创建迁移：`realtime.messages` SELECT/INSERT policy 和权限辅助逻辑。
+- 创建迁移：扩展阶段 12 的 `realtime.messages` SELECT policy，并增加 INSERT policy。
 - 创建：`src/features/realtime/use-workspace-presence.ts`、`use-comment-typing.ts`。
 - 修改：工作区头部在线头像、评论输入状态、连接状态条。
 - 测试：Realtime policy pgTAP、节流/超时单元测试、Presence/Broadcast Playwright 测试。
@@ -925,7 +927,7 @@ git commit -m "feat: sync tasks and comments in realtime"
 ### 开发步骤
 
 1. 确认当前项目启用私有 Realtime channel 和授权能力。
-2. 在 `realtime.messages` 上为 authenticated 建立 SELECT/INSERT policy：topic 必须是 `workspace:{uuid}`，UUID 必须对应当前成员，extension 只允许 presence 或 broadcast。
+2. 复用 `private.is_workspace_topic_member`，把现有 SELECT policy 扩展到 Presence，并为 authenticated 新增 INSERT policy；topic 必须是 `workspace:{uuid}`，extension 只允许 presence 或 broadcast。
 3. channel 名固定为 `workspace:{workspaceId}`，配置 `{ private: true }`。
 4. Presence payload 只包含 userId、displayName、onlineAt，不包含邮箱、token 或角色授权信息。
 5. typing payload 只包含 taskId、userId、isTyping；发送节流为最多每 `500 ms` 一次，停止输入 `2 秒` 后发送 false。

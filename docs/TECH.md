@@ -416,10 +416,10 @@ export type ActionResult<T> =
 ### 12.1 Postgres Changes
 
 - 迁移将 `tasks` 和 `comments` 加入 `supabase_realtime` publication。
-- 订阅带 `workspace_id=eq.{workspaceId}` 过滤。
-- 收到事件后按主键增量更新；遇到无法可靠合并的事件时重新获取当前页。
-- DELETE 事件不依赖完整旧行内容；客户端按主键移除。
-- React effect cleanup 调用 `removeChannel`，避免重复订阅。
+- tasks、comments 的 INSERT、UPDATE 使用独立 Postgres Changes channel，并带 `workspace_id=eq.{workspaceId}` 过滤。
+- Postgres Changes 不支持过滤 DELETE；删除由数据库触发器调用 `realtime.send()`，向私有 `workspace:{workspaceId}` topic 发送仅含 `table`、`id` 的 `DELETE` Broadcast。
+- 客户端 reducer 按表名和主键去重、拒绝乱序事件；DELETE 先按主键移除，所有事件随后重新获取当前页、统计和必要详情。
+- 私有 Broadcast 与 Postgres Changes 使用两个同生命周期 channel；React effect cleanup 分别调用 `removeChannel`。浏览器恢复联网时重建两个 channel，全部订阅成功后补偿刷新。
 
 Postgres Changes 易于学习，但每个事件都要进行订阅者访问检查，扩展性有限。大规模系统应优先评估数据库触发的 Broadcast。
 
@@ -433,11 +433,11 @@ Postgres Changes 易于学习，但每个事件都要进行订阅者访问检查
 
 ### 12.3 Realtime Authorization
 
-在 `realtime.messages` 上为 `authenticated` 创建 SELECT 和 INSERT policy：
+阶段 12 已创建仅允许工作区成员接收 `broadcast` 的 SELECT policy，用于数据库 DELETE 通知。阶段 13 在 `realtime.messages` 上扩展 SELECT policy，并新增客户端发送所需的 INSERT policy：
 
 - `realtime.topic()` 必须匹配 `workspace:{uuid}`。
 - 从 topic 提取的 UUID 必须通过 `private.is_workspace_member`。
-- `extension` 只允许 `presence` 或 `broadcast`。
+- SELECT 的 `extension` 允许 `presence` 或 `broadcast`；INSERT 只开放阶段 13 明确需要的 Presence 与 typing Broadcast。
 - 项目 Realtime 设置使用私有频道；policy 更新后客户端刷新 JWT 或重新连接，避免继续使用缓存的旧授权。
 
 ## 13. Edge Functions

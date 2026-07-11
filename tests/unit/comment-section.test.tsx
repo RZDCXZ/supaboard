@@ -132,4 +132,58 @@ describe("CommentSection", () => {
     expect(screen.getByText("评论加载失败")).toBeVisible();
     expect(screen.getByRole("button", { name: "发表评论" })).toBeVisible();
   });
+
+  it("reconciles refreshed comments and removes a realtime delete by id", () => {
+    const first = comment(
+      "55555555-5555-4555-8555-555555555555",
+      aliceId,
+      "Alice",
+      "First",
+    );
+    const second = comment(
+      "66666666-6666-4666-8666-666666666666",
+      bobId,
+      "Bob",
+      "Second",
+    );
+    const { rerender } = render(
+      <CommentSection
+        workspaceId={workspaceId}
+        taskId={taskId}
+        comments={[first]}
+        realtimeChange={null}
+        currentUserId={bobId}
+        workspaceRole="member"
+      />,
+    );
+
+    rerender(
+      <CommentSection
+        workspaceId={workspaceId}
+        taskId={taskId}
+        comments={[first, second]}
+        realtimeChange={null}
+        currentUserId={bobId}
+        workspaceRole="member"
+      />,
+    );
+    expect(screen.getByText("Second")).toBeVisible();
+
+    rerender(
+      <CommentSection
+        workspaceId={workspaceId}
+        taskId={taskId}
+        comments={[first, second]}
+        realtimeChange={{
+          table: "comments",
+          eventType: "DELETE",
+          id: second.id,
+          commitTimestamp: null,
+        }}
+        currentUserId={bobId}
+        workspaceRole="member"
+      />,
+    );
+    expect(screen.queryByText("Second")).not.toBeInTheDocument();
+  });
 });

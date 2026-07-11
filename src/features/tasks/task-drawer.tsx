@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { CommentSection } from "@/features/comments/comment-section";
 import type { CommentItem } from "@/features/comments/types";
+import type { WorkspaceChange } from "@/features/realtime/reducer";
 import type { WorkspaceRole } from "@/features/workspaces/types";
 import { AttachmentSection } from "@/features/storage/attachments/attachment-section";
 import type { AttachmentItem } from "@/features/storage/attachments/types";
@@ -60,6 +61,7 @@ export function TaskDrawer({
   task,
   members,
   comments,
+  realtimeChange = null,
   attachments = [],
   commentsError = false,
   currentUserId,
@@ -73,6 +75,7 @@ export function TaskDrawer({
   task: TaskItem;
   members: readonly TaskMemberOption[];
   comments: readonly CommentItem[];
+  realtimeChange?: WorkspaceChange | null;
   attachments?: readonly AttachmentItem[];
   commentsError?: boolean;
   currentUserId: string;
@@ -332,6 +335,7 @@ export function TaskDrawer({
             taskId={currentTask.id}
             comments={comments}
             commentsError={commentsError}
+            realtimeChange={realtimeChange}
             currentUserId={currentUserId}
             workspaceRole={workspaceRole}
           />

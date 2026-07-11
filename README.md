@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 11——私有任务附件 Storage。工作区成员可直传 JPEG、PNG、WebP、PDF 和纯文本附件，并通过 60 秒签名链接下载；附件元数据、私有 bucket 和 Storage RLS 共同保证多租户隔离，普通附件仅上传者或 Owner 可删除。删除带附件任务时，`delete-task` Edge Function 会先清理对象再删除任务。
+> 当前进度：已完成阶段 12——任务与评论实时同步。任务和评论的 INSERT、UPDATE 通过按工作区过滤的 Postgres Changes 触发服务端重新获取；DELETE 通过数据库触发器发送仅含表名和主键的私有 Broadcast。页面支持连接状态、断线后重建频道与补偿刷新，非成员无法加入工作区私有 topic。
 
 ## 目标能力
 

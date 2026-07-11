@@ -1,12 +1,13 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useReducer, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
 
 import { InlineAlert } from "@/components/feedback/inline-alert";
 import { Button } from "@/components/ui/button";
 import type { CommentItem } from "@/features/comments/types";
 import type { AttachmentItem } from "@/features/storage/attachments/types";
+import { useWorkspaceChanges } from "@/features/realtime/use-workspace-changes";
 import type { WorkspaceRole } from "@/features/workspaces/types";
 
 import { CreateTaskDialog } from "./create-task-dialog";
@@ -57,6 +58,32 @@ function adjustStats(
   };
 }
 
+type StatsOptimisticAction =
+  | { type: "add"; status: TaskStatus }
+  | { type: "remove"; status: TaskStatus }
+  | { type: "move"; from: TaskStatus; to: TaskStatus };
+
+function optimisticStatsReducer(
+  stats: WorkspaceTaskStats | null,
+  action: StatsOptimisticAction,
+) {
+  if (action.type === "add") return adjustStats(stats, action.status, 1);
+  if (action.type === "remove") return adjustStats(stats, action.status, -1);
+
+  return adjustStats(
+    adjustStats(stats, action.from, -1),
+    action.to,
+    1,
+  );
+}
+
+function replaceDrawerTask(
+  _current: TaskItem | null,
+  next: TaskItem | null,
+) {
+  return next;
+}
+
 export function TaskWorkspace({
   workspaceId,
   filters,
@@ -89,12 +116,65 @@ export function TaskWorkspace({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [tasks, dispatch] = useReducer(taskReducer, taskPage.tasks);
-  const [drawerTask, setDrawerTask] = useState(selectedTask);
-  const [currentStats, setCurrentStats] = useState(stats);
+  const [tasks, dispatchTasks] = useOptimistic(taskPage.tasks, taskReducer);
+  const [drawerTask, setDrawerTask] = useOptimistic(
+    selectedTask,
+    replaceDrawerTask,
+  );
+  const [currentStats, dispatchStats] = useOptimistic(
+    stats,
+    optimisticStatsReducer,
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [isNavigating, startTransition] = useTransition();
+  const { status, latestChange, resyncVersion } =
+    useWorkspaceChanges(workspaceId);
+  const searchParamsString = searchParams.toString();
   const hasFilters = filters.status !== "all" || filters.assignee !== "all";
+
+  const realtimeStatusLabels = {
+    connecting: "连接中",
+    connected: "已连接",
+    reconnecting: "正在重连",
+    disconnected: "已断开",
+  } as const;
+
+  const remotelyDeletedTaskId =
+    latestChange?.table === "tasks" && latestChange.eventType === "DELETE"
+      ? latestChange.id
+      : null;
+  const visibleDrawerTask =
+    drawerTask?.id === remotelyDeletedTaskId ? null : drawerTask;
+  const visibleTasks = remotelyDeletedTaskId
+    ? tasks.filter(({ id }) => id !== remotelyDeletedTaskId)
+    : tasks;
+
+  useEffect(() => {
+    if (resyncVersion === 0) return;
+
+    startTransition(() => {
+      if (
+        latestChange?.table === "tasks" &&
+        latestChange.eventType === "DELETE" &&
+        drawerTask?.id === latestChange.id
+      ) {
+        const params = new URLSearchParams(searchParamsString);
+        params.delete("task");
+        const query = params.toString();
+        const nextHref = query ? `${pathname}?${query}` : pathname;
+        router.replace(nextHref, { scroll: false });
+      }
+
+      router.refresh();
+    });
+  }, [
+    drawerTask?.id,
+    latestChange,
+    pathname,
+    resyncVersion,
+    router,
+    searchParamsString,
+  ]);
 
   function href(params: URLSearchParams) {
     const query = params.toString();
@@ -102,7 +182,7 @@ export function TaskWorkspace({
   }
 
   function replaceParams(mutator: (params: URLSearchParams) => void) {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParamsString);
     mutator(params);
     startTransition(() => router.replace(href(params), { scroll: false }));
   }
@@ -135,14 +215,18 @@ export function TaskWorkspace({
   }
 
   function openTask(taskId: string) {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParamsString);
     params.set("task", taskId);
     startTransition(() => router.push(href(params), { scroll: false }));
   }
 
   function closeTask() {
-    setDrawerTask(null);
-    replaceParams((params) => params.delete("task"));
+    const params = new URLSearchParams(searchParamsString);
+    params.delete("task");
+    startTransition(() => {
+      setDrawerTask(null);
+      router.replace(href(params), { scroll: false });
+    });
   }
 
   function changePage(page: number) {
@@ -152,15 +236,18 @@ export function TaskWorkspace({
     });
   }
 
-  function refresh() {
-    startTransition(() => router.refresh());
-  }
-
   const rangeStart = taskPage.total === 0 ? 0 : (taskPage.page - 1) * taskPage.pageSize + 1;
   const rangeEnd = Math.min(taskPage.page * taskPage.pageSize, taskPage.total);
 
   return (
     <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+      <p
+        role="status"
+        aria-label="实时同步状态"
+        className="text-sm text-muted-foreground"
+      >
+        实时同步：{realtimeStatusLabels[status]}
+      </p>
       <TaskStats stats={currentStats} error={statsError} />
 
       <section className="flex flex-col gap-4" aria-label="任务列表">
@@ -184,17 +271,19 @@ export function TaskWorkspace({
             open={createOpen}
             onOpenChange={setCreateOpen}
             onCreated={(task) => {
-              setCurrentStats((current) => adjustStats(current, task.status, 1));
-              if (filters.page === 1 && matchesFilters(task, filters)) {
-                dispatch({ type: "upsert", task });
-              }
-              refresh();
+              startTransition(() => {
+                dispatchStats({ type: "add", status: task.status });
+                if (filters.page === 1 && matchesFilters(task, filters)) {
+                  dispatchTasks({ type: "upsert", task });
+                }
+                router.refresh();
+              });
             }}
           />
         </div>
 
         <TaskList
-          tasks={tasks}
+          tasks={visibleTasks}
           statusFilter={filters.status}
           hasFilters={hasFilters}
           onOpenTask={openTask}
@@ -229,14 +318,15 @@ export function TaskWorkspace({
         ) : null}
       </section>
 
-      {drawerTask ? (
+      {visibleDrawerTask ? (
         <TaskDrawer
-          key={`${drawerTask.id}:${drawerTask.updatedAt}`}
+          key={`${visibleDrawerTask.id}:${visibleDrawerTask.updatedAt}`}
           open
           workspaceId={workspaceId}
-          task={drawerTask}
+          task={visibleDrawerTask}
           members={members}
           comments={comments}
+          realtimeChange={latestChange}
           attachments={attachments}
           commentsError={commentsError}
           currentUserId={currentUserId}
@@ -246,34 +336,37 @@ export function TaskWorkspace({
           }}
           onUpdated={(task) => {
             const previous = drawerTask;
-            setDrawerTask(task);
-            if (previous && previous.status !== task.status) {
-              setCurrentStats((current) =>
-                adjustStats(
-                  adjustStats(current, previous.status, -1),
-                  task.status,
-                  1,
-                ),
-              );
-            }
-            if (tasks.some(({ id }) => id === task.id)) {
-              dispatch(
-                matchesFilters(task, filters)
-                  ? { type: "upsert", task }
-                  : { type: "remove", taskId: task.id },
-              );
-            }
-            refresh();
+            startTransition(() => {
+              setDrawerTask(task);
+              if (previous && previous.status !== task.status) {
+                dispatchStats({
+                  type: "move",
+                  from: previous.status,
+                  to: task.status,
+                });
+              }
+              if (tasks.some(({ id }) => id === task.id)) {
+                dispatchTasks(
+                  matchesFilters(task, filters)
+                    ? { type: "upsert", task }
+                    : { type: "remove", taskId: task.id },
+                );
+              }
+              router.refresh();
+            });
           }}
           onDeleted={(taskId) => {
-            if (drawerTask) {
-              setCurrentStats((current) =>
-                adjustStats(current, drawerTask.status, -1),
-              );
-            }
-            dispatch({ type: "remove", taskId });
-            closeTask();
-            refresh();
+            const params = new URLSearchParams(searchParamsString);
+            params.delete("task");
+            startTransition(() => {
+              if (drawerTask) {
+                dispatchStats({ type: "remove", status: drawerTask.status });
+              }
+              dispatchTasks({ type: "remove", taskId });
+              setDrawerTask(null);
+              router.replace(href(params), { scroll: false });
+              router.refresh();
+            });
           }}
         />
       ) : null}

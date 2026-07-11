@@ -11,6 +11,18 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   refresh: vi.fn(),
   replace: vi.fn(),
+  realtime: {
+    current: {
+      status: "connected" as const,
+      latestChange: null as null | {
+        table: "tasks" | "comments";
+        eventType: "INSERT" | "UPDATE" | "DELETE";
+        id: string;
+        commitTimestamp: string | null;
+      },
+      resyncVersion: 0,
+    },
+  },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -30,11 +42,15 @@ vi.mock("@/features/comments/actions", () => ({
   deleteComment: vi.fn(),
 }));
 
-function task(): TaskItem {
+vi.mock("@/features/realtime/use-workspace-changes", () => ({
+  useWorkspaceChanges: () => mocks.realtime.current,
+}));
+
+function task(title = "Done task"): TaskItem {
   return {
     id: taskId,
     workspaceId,
-    title: "Done task",
+    title,
     description: null,
     status: "done",
     priority: "medium",
@@ -50,6 +66,11 @@ beforeEach(() => {
   mocks.push.mockReset();
   mocks.refresh.mockReset();
   mocks.replace.mockReset();
+  mocks.realtime.current = {
+    status: "connected",
+    latestChange: null,
+    resyncVersion: 0,
+  };
 });
 
 test("TaskWorkspace keeps filters, paging and task selection in the URL", () => {
@@ -138,4 +159,70 @@ test("TaskWorkspace passes selected task comments and permissions into the drawe
   expect(screen.getByText("Stage 8 comment")).toBeVisible();
   expect(screen.getByText("stage-11.txt")).toBeVisible();
   expect(screen.getByRole("button", { name: "删除 Alice 的评论" })).toBeVisible();
+});
+
+test("TaskWorkspace reconciles local state when server data changes", () => {
+  const props = {
+    workspaceId,
+    filters: { status: "done" as const, assignee: "all" as const, page: 1, taskId: null },
+    members: [],
+    comments: [],
+    attachments: [],
+    currentUserId: "33333333-3333-4333-8333-333333333333",
+    workspaceRole: "owner" as const,
+    stats: { total: 1, todo: 0, inProgress: 0, done: 1 },
+    statsError: false,
+    selectedTask: null,
+  };
+  const { rerender } = render(
+    <TaskWorkspace
+      {...props}
+      taskPage={{ tasks: [task("Before realtime")], page: 1, pageSize: 20, total: 1, totalPages: 1 }}
+    />,
+  );
+
+  expect(screen.getByRole("status", { name: "实时同步状态" })).toHaveTextContent(
+    "已连接",
+  );
+  rerender(
+    <TaskWorkspace
+      {...props}
+      taskPage={{ tasks: [task("After realtime")], page: 1, pageSize: 20, total: 1, totalPages: 1 }}
+    />,
+  );
+
+  expect(screen.getByRole("button", { name: /After realtime/ })).toBeVisible();
+  expect(screen.queryByRole("button", { name: /Before realtime/ })).not.toBeInTheDocument();
+});
+
+test("TaskWorkspace removes a remotely deleted task before refetching", () => {
+  const props = {
+    workspaceId,
+    filters: { status: "done" as const, assignee: "all" as const, page: 1, taskId: null },
+    taskPage: { tasks: [task("Remote delete")], page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    members: [],
+    comments: [],
+    attachments: [],
+    currentUserId: "33333333-3333-4333-8333-333333333333",
+    workspaceRole: "owner" as const,
+    stats: { total: 1, todo: 0, inProgress: 0, done: 1 },
+    statsError: false,
+    selectedTask: null,
+  };
+  const { rerender } = render(<TaskWorkspace {...props} />);
+
+  mocks.realtime.current = {
+    status: "connected",
+    latestChange: {
+      table: "tasks",
+      eventType: "DELETE",
+      id: taskId,
+      commitTimestamp: null,
+    },
+    resyncVersion: 1,
+  };
+  rerender(<TaskWorkspace {...props} />);
+
+  expect(screen.queryByRole("button", { name: /Remote delete/ })).not.toBeInTheDocument();
+  expect(mocks.refresh).toHaveBeenCalledTimes(1);
 });
