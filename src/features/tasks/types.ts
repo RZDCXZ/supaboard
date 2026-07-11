@@ -6,7 +6,7 @@ export type TaskPriority = "low" | "medium" | "high";
 
 export type TaskMemberOption = Pick<
   WorkspaceMember,
-  "id" | "displayName" | "avatarPath"
+  "id" | "displayName" | "avatarUrl"
 >;
 
 export type TaskAssignee = TaskMemberOption;

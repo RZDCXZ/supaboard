@@ -181,6 +181,20 @@ async function deleteOwnedWorkspaces(
   }
 }
 
+async function deleteActorAvatars(
+  admin: SupabaseClient<Database>,
+  actors: readonly TestActor[],
+) {
+  const paths = actors.flatMap((actor) =>
+    ["jpg", "jpeg", "png", "webp"].map(
+      (extension) => `${actor.id}/avatar.${extension}`,
+    ),
+  );
+  const { error } = await admin.storage.from("avatars").remove(paths);
+
+  if (error) throw new Error(`无法清理测试头像: ${error.message}`);
+}
+
 async function createActor(
   admin: SupabaseClient<Database>,
   displayName: TestActor["displayName"],
@@ -227,6 +241,7 @@ export const test = base.extend<Fixtures>({
     } finally {
       if (created.length > 0) {
         await deleteOwnedWorkspaces(admin, created);
+        await deleteActorAvatars(admin, created);
       }
 
       for (const actor of created.toReversed()) {

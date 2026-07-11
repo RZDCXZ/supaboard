@@ -1,7 +1,7 @@
 export type CommentAuthor = {
   id: string;
   displayName: string;
-  avatarPath: string | null;
+  avatarUrl: string | null;
 };
 
 export type CommentItem = {

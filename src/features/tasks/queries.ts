@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
+import { getAvatarPublicUrl } from "@/features/storage/avatar";
 
 import { clampTaskPageSize } from "./search-params";
 import type {
@@ -58,7 +59,10 @@ function toTaskPriority(value: string): TaskPriority {
   throw new TaskQueryError("INVALID_TASK_PRIORITY");
 }
 
-export function mapTaskRow(row: TaskRow): TaskItem {
+export function mapTaskRow(
+  row: TaskRow,
+  supabase: SupabaseClient<Database>,
+): TaskItem {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
@@ -70,7 +74,7 @@ export function mapTaskRow(row: TaskRow): TaskItem {
       ? {
           id: row.assignee.id,
           displayName: row.assignee.display_name,
-          avatarPath: row.assignee.avatar_path,
+          avatarUrl: getAvatarPublicUrl(supabase, row.assignee.avatar_path),
         }
       : null,
     createdBy: row.created_by,
@@ -114,7 +118,7 @@ export async function getWorkspaceTaskPage(
   const total = count ?? 0;
 
   return {
-    tasks: ((data ?? []) as TaskRow[]).map(mapTaskRow),
+    tasks: ((data ?? []) as TaskRow[]).map((row) => mapTaskRow(row, supabase)),
     page: filters.page,
     pageSize,
     total,
@@ -138,7 +142,7 @@ export async function getWorkspaceTask(
     throw new TaskQueryError();
   }
 
-  return data ? mapTaskRow(data as TaskRow) : null;
+  return data ? mapTaskRow(data as TaskRow, supabase) : null;
 }
 
 export async function getWorkspaceTaskStats(

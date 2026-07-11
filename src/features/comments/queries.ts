@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
+import { getAvatarPublicUrl } from "@/features/storage/avatar";
 
 import type { CommentItem } from "./types";
 
@@ -31,7 +32,10 @@ export class CommentQueryError extends Error {
   }
 }
 
-export function mapCommentRow(row: CommentRow): CommentItem {
+export function mapCommentRow(
+  row: CommentRow,
+  supabase: SupabaseClient<Database>,
+): CommentItem {
   if (!row.author) {
     throw new CommentQueryError("COMMENT_AUTHOR_MISSING");
   }
@@ -43,7 +47,7 @@ export function mapCommentRow(row: CommentRow): CommentItem {
     author: {
       id: row.author.id,
       displayName: row.author.display_name,
-      avatarPath: row.author.avatar_path,
+      avatarUrl: getAvatarPublicUrl(supabase, row.author.avatar_path),
     },
     body: row.body,
     createdAt: row.created_at,
@@ -68,5 +72,7 @@ export async function getTaskComments(
     throw new CommentQueryError();
   }
 
-  return ((data ?? []) as CommentRow[]).map(mapCommentRow);
+  return ((data ?? []) as CommentRow[]).map((row) =>
+    mapCommentRow(row, supabase),
+  );
 }

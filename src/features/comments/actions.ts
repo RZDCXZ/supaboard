@@ -123,7 +123,10 @@ export async function createComment(
   if (error || !data) return databaseError("create", error);
 
   revalidateWorkspace(parsed.data.workspaceId);
-  return { ok: true, data: mapCommentRow(data as CommentRow) };
+  return {
+    ok: true,
+    data: mapCommentRow(data as CommentRow, authenticated.supabase),
+  };
 }
 
 export async function deleteComment(

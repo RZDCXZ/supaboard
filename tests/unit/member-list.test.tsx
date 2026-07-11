@@ -8,14 +8,14 @@ const members: WorkspaceMember[] = [
   {
     id: "33333333-3333-4333-8333-333333333333",
     displayName: "Alice",
-    avatarPath: null,
+    avatarUrl: null,
     role: "owner",
     joinedAt: "2026-07-10T00:00:00Z",
   },
   {
     id: "44444444-4444-4444-8444-444444444444",
     displayName: "Bob",
-    avatarPath: null,
+    avatarUrl: null,
     role: "member",
     joinedAt: "2026-07-10T00:01:00Z",
   },

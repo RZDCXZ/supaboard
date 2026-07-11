@@ -40,13 +40,22 @@ describe("member queries", () => {
             profiles: {
               id: bobId,
               display_name: "Bob",
-              avatar_path: "avatars/bob.png",
+              avatar_path: `${bobId}/avatar.png`,
             },
           },
         ],
         error: null,
       });
-    const supabase = { from: vi.fn(() => builder) };
+    const supabase = {
+      from: vi.fn(() => builder),
+      storage: {
+        from: vi.fn(() => ({
+          getPublicUrl: vi.fn((path: string) => ({
+            data: { publicUrl: `https://storage.test/${path}` },
+          })),
+        })),
+      },
+    };
 
     await expect(
       getWorkspaceMembers(supabase as never, workspaceId),
@@ -54,14 +63,14 @@ describe("member queries", () => {
       {
         id: aliceId,
         displayName: "Alice",
-        avatarPath: null,
+        avatarUrl: null,
         role: "owner",
         joinedAt: "2026-07-10T00:00:00Z",
       },
       {
         id: bobId,
         displayName: "Bob",
-        avatarPath: "avatars/bob.png",
+        avatarUrl: `https://storage.test/${bobId}/avatar.png`,
         role: "member",
         joinedAt: "2026-07-10T00:01:00Z",
       },

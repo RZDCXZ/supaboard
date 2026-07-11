@@ -101,7 +101,7 @@ test("TaskWorkspace passes selected task comments and permissions into the drawe
           author: {
             id: "33333333-3333-4333-8333-333333333333",
             displayName: "Alice",
-            avatarPath: null,
+            avatarUrl: null,
           },
           body: "Stage 8 comment",
           createdAt: "2026-07-10T00:00:00Z",

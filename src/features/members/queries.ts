@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
+import { getAvatarPublicUrl } from "@/features/storage/avatar";
 
 import type { WorkspaceMember, WorkspaceMemberRole } from "./types";
 
@@ -53,7 +54,7 @@ export async function getWorkspaceMembers(
           {
             id: row.profiles.id,
             displayName: row.profiles.display_name,
-            avatarPath: row.profiles.avatar_path,
+            avatarUrl: getAvatarPublicUrl(supabase, row.profiles.avatar_path),
             role: toWorkspaceMemberRole(row.role),
             joinedAt: row.joined_at,
           },

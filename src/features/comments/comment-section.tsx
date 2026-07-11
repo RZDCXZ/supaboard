@@ -8,6 +8,7 @@ import { InlineAlert } from "@/components/feedback/inline-alert";
 import {
   Avatar,
   AvatarFallback,
+  AvatarImage,
 } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -151,6 +152,12 @@ export function CommentSection({
             return (
               <li key={comment.id} className="flex gap-3">
                 <Avatar size="sm">
+                  {comment.author.avatarUrl ? (
+                    <AvatarImage
+                      src={comment.author.avatarUrl}
+                      alt={`${comment.author.displayName}的头像`}
+                    />
+                  ) : null}
                   <AvatarFallback>
                     {avatarFallback(comment.author.displayName)}
                   </AvatarFallback>
