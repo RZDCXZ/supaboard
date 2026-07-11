@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Project-local development artifacts:
+    ".worktrees/**",
+    ".pnpm-store/**",
   ]),
 ]);
 
