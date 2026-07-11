@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import { TaskWorkspace } from "@/features/tasks/task-workspace";
@@ -6,11 +6,15 @@ import type { TaskItem } from "@/features/tasks/types";
 
 const workspaceId = "11111111-1111-4111-8111-111111111111";
 const taskId = "22222222-2222-4222-8222-222222222222";
+const aliceId = "33333333-3333-4333-8333-333333333333";
+const bobId = "44444444-4444-4444-8444-444444444444";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   refresh: vi.fn(),
   replace: vi.fn(),
+  deleteTask: vi.fn(),
+  notifyTyping: vi.fn(),
   realtime: {
     current: {
       status: "connected" as const,
@@ -21,6 +25,13 @@ const mocks = vi.hoisted(() => ({
         commitTimestamp: string | null;
       },
       resyncVersion: 0,
+      onlineMembers: [] as Array<{
+        userId: string;
+        displayName: string;
+        onlineAt: string;
+      }>,
+      typingUserIds: [] as string[],
+      notifyTyping: vi.fn(),
     },
   },
 }));
@@ -34,7 +45,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/features/tasks/actions", () => ({
   createTask: vi.fn(),
   updateTask: vi.fn(),
-  deleteTask: vi.fn(),
+  deleteTask: mocks.deleteTask,
 }));
 
 vi.mock("@/features/comments/actions", () => ({
@@ -66,10 +77,15 @@ beforeEach(() => {
   mocks.push.mockReset();
   mocks.refresh.mockReset();
   mocks.replace.mockReset();
+  mocks.deleteTask.mockReset();
+  mocks.notifyTyping.mockReset();
   mocks.realtime.current = {
     status: "connected",
     latestChange: null,
     resyncVersion: 0,
+    onlineMembers: [],
+    typingUserIds: [],
+    notifyTyping: mocks.notifyTyping,
   };
 });
 
@@ -220,9 +236,148 @@ test("TaskWorkspace removes a remotely deleted task before refetching", () => {
       commitTimestamp: null,
     },
     resyncVersion: 1,
+    onlineMembers: [],
+    typingUserIds: [],
+    notifyTyping: mocks.notifyTyping,
   };
   rerender(<TaskWorkspace {...props} />);
 
   expect(screen.queryByRole("button", { name: /Remote delete/ })).not.toBeInTheDocument();
   expect(mocks.refresh).toHaveBeenCalledTimes(1);
+});
+
+test("TaskWorkspace keeps the drawer mounted until one local delete navigation commits", async () => {
+  window.history.replaceState(
+    null,
+    "",
+    `/app/workspaces/${workspaceId}?status=done&page=1&task=${taskId}`,
+  );
+  mocks.deleteTask.mockResolvedValue({ ok: true, data: taskId });
+
+  render(
+    <TaskWorkspace
+      workspaceId={workspaceId}
+      filters={{ status: "done", assignee: "all", page: 1, taskId }}
+      taskPage={{ tasks: [task()], page: 1, pageSize: 20, total: 1, totalPages: 1 }}
+      members={[]}
+      comments={[]}
+      attachments={[]}
+      currentUserId={aliceId}
+      workspaceRole="owner"
+      stats={{ total: 1, todo: 0, inProgress: 0, done: 1 }}
+      statsError={false}
+      selectedTask={task()}
+    />,
+  );
+
+  fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+  fireEvent.click(screen.getByRole("menuitem", { name: "删除任务" }));
+  fireEvent.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "删除任务",
+    }),
+  );
+
+  await waitFor(() => expect(mocks.deleteTask).toHaveBeenCalledOnce());
+  expect(mocks.replace).toHaveBeenCalledOnce();
+  expect(mocks.replace).toHaveBeenCalledWith(
+    `/app/workspaces/${workspaceId}?status=done&page=1`,
+    { scroll: false },
+  );
+  expect(mocks.refresh).not.toHaveBeenCalled();
+  expect(screen.getByRole("dialog", { name: "Done task" })).toBeVisible();
+});
+
+test("TaskWorkspace shows online members and forwards comment typing", () => {
+  mocks.realtime.current = {
+    status: "connected",
+    latestChange: null,
+    resyncVersion: 0,
+    onlineMembers: [
+      {
+        userId: aliceId,
+        displayName: "Alice",
+        onlineAt: "2026-07-11T00:00:00.000Z",
+      },
+      {
+        userId: bobId,
+        displayName: "Bob",
+        onlineAt: "2026-07-11T00:00:01.000Z",
+      },
+    ],
+    typingUserIds: [bobId],
+    notifyTyping: mocks.notifyTyping,
+  };
+
+  render(
+    <TaskWorkspace
+      workspaceId={workspaceId}
+      filters={{ status: "done", assignee: "all", page: 1, taskId }}
+      taskPage={{ tasks: [task()], page: 1, pageSize: 20, total: 1, totalPages: 1 }}
+      members={[
+        { id: aliceId, displayName: "Alice", avatarUrl: null },
+        { id: bobId, displayName: "Bob", avatarUrl: null },
+      ]}
+      comments={[]}
+      attachments={[]}
+      currentUserId={aliceId}
+      workspaceRole="owner"
+      stats={{ total: 1, todo: 0, inProgress: 0, done: 1 }}
+      statsError={false}
+      selectedTask={task()}
+    />,
+  );
+
+  expect(screen.getByLabelText("在线成员")).toHaveTextContent("在线 2");
+  expect(screen.getByRole("status", { name: "评论输入状态" })).toHaveTextContent(
+    "Bob 正在输入",
+  );
+
+  const input = screen.getByRole("textbox", { name: "评论" });
+  fireEvent.change(input, { target: { value: "Hello" } });
+  expect(mocks.notifyTyping).toHaveBeenLastCalledWith(true);
+  fireEvent.change(input, { target: { value: "" } });
+  expect(mocks.notifyTyping).toHaveBeenLastCalledWith(false);
+});
+
+test("TaskWorkspace limits the online avatar stack to five members", () => {
+  const onlineMembers = Array.from({ length: 6 }, (_, index) => ({
+    userId: `00000000-0000-4000-8000-0000000000${index + 10}`,
+    displayName: `Member ${index + 1}`,
+    onlineAt: `2026-07-11T00:00:0${index}.000Z`,
+  }));
+  mocks.realtime.current = {
+    status: "connected",
+    latestChange: null,
+    resyncVersion: 0,
+    onlineMembers,
+    typingUserIds: [],
+    notifyTyping: mocks.notifyTyping,
+  };
+
+  render(
+    <TaskWorkspace
+      workspaceId={workspaceId}
+      filters={{ status: "done", assignee: "all", page: 1, taskId: null }}
+      taskPage={{ tasks: [], page: 1, pageSize: 20, total: 0, totalPages: 1 }}
+      members={onlineMembers.map((member) => ({
+        id: member.userId,
+        displayName: member.displayName,
+        avatarUrl: null,
+      }))}
+      comments={[]}
+      attachments={[]}
+      currentUserId={onlineMembers[0].userId}
+      workspaceRole="owner"
+      stats={{ total: 0, todo: 0, inProgress: 0, done: 0 }}
+      statsError={false}
+      selectedTask={null}
+    />,
+  );
+
+  expect(screen.getByLabelText("在线成员")).toHaveTextContent("在线 6");
+  expect(screen.getByLabelText("在线成员")).toHaveTextContent("+1");
 });

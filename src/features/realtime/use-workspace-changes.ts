@@ -5,7 +5,7 @@ import type {
   RealtimePostgresInsertPayload,
   RealtimePostgresUpdatePayload,
 } from "@supabase/supabase-js";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/types/database";
@@ -15,6 +15,14 @@ import {
   type WorkspaceChangeTable,
   workspaceChangeReducer,
 } from "./reducer";
+import {
+  type CommentTypingPayload,
+  useCommentTyping,
+} from "./use-comment-typing";
+import {
+  type WorkspacePresencePayload,
+  useWorkspacePresence,
+} from "./use-workspace-presence";
 
 export type WorkspaceRealtimeStatus =
   | "connecting"
@@ -34,9 +42,19 @@ type DeleteBroadcastPayload = {
   id?: unknown;
 };
 
-type ChannelKind = "postgres" | "broadcast";
+type ChannelKind = "postgres" | "workspace";
 
-export function useWorkspaceChanges(workspaceId: string) {
+export function useWorkspaceChanges({
+  workspaceId,
+  currentUserId,
+  currentUserDisplayName,
+  activeTaskId,
+}: {
+  workspaceId: string;
+  currentUserId: string;
+  currentUserDisplayName: string;
+  activeTaskId: string | null;
+}) {
   const [changeState, dispatch] = useReducer(
     workspaceChangeReducer,
     initialWorkspaceChangeState,
@@ -46,15 +64,41 @@ export function useWorkspaceChanges(workspaceId: string) {
   const [reconnectVersion, setReconnectVersion] = useState(0);
   const [connectionEpoch, setConnectionEpoch] = useState(0);
   const hasConnectedRef = useRef(false);
+  const workspaceChannelRef = useRef<RealtimeChannel | null>(null);
+  const workspaceChannelSubscribedRef = useRef(false);
+  const handleTypingEventRef = useRef<(payload: unknown) => void>(() => undefined);
+  const {
+    onlineMembers,
+    createPresencePayload,
+    syncPresence,
+    clearPresence,
+  } = useWorkspacePresence({ currentUserId, currentUserDisplayName });
+  const sendTyping = useCallback((payload: CommentTypingPayload) => {
+    if (!workspaceChannelSubscribedRef.current) return;
+
+    const channel = workspaceChannelRef.current;
+    if (!channel) return;
+    void channel.send({ type: "broadcast", event: "typing", payload });
+  }, []);
+  const { typingUserIds, notifyTyping, handleTypingEvent, clearTyping } =
+    useCommentTyping({
+      taskId: activeTaskId,
+      currentUserId,
+      sendTyping,
+    });
+
+  useEffect(() => {
+    handleTypingEventRef.current = handleTypingEvent;
+  }, [handleTypingEvent]);
 
   useEffect(() => {
     const supabase = createClient();
     let active = true;
     let postgresChannel: RealtimeChannel | null = null;
-    let broadcastChannel: RealtimeChannel | null = null;
+    let workspaceChannel: RealtimeChannel | null = null;
     const subscribed: Record<ChannelKind, boolean> = {
       postgres: false,
-      broadcast: false,
+      workspace: false,
     };
 
     function handlePostgresChange(
@@ -80,7 +124,10 @@ export function useWorkspaceChanges(workspaceId: string) {
 
     function handleOffline() {
       subscribed.postgres = false;
-      subscribed.broadcast = false;
+      subscribed.workspace = false;
+      workspaceChannelSubscribedRef.current = false;
+      clearPresence();
+      clearTyping();
       setStatus("disconnected");
     }
 
@@ -95,8 +142,9 @@ export function useWorkspaceChanges(workspaceId: string) {
       if (nextStatus === "SUBSCRIBED") {
         if (subscribed[kind]) return;
         subscribed[kind] = true;
+        if (kind === "workspace") workspaceChannelSubscribedRef.current = true;
 
-        if (subscribed.postgres && subscribed.broadcast) {
+        if (subscribed.postgres && subscribed.workspace) {
           setStatus("connected");
           if (hasConnectedRef.current) {
             setReconnectVersion((current) => current + 1);
@@ -110,6 +158,11 @@ export function useWorkspaceChanges(workspaceId: string) {
       }
 
       subscribed[kind] = false;
+      if (kind === "workspace") {
+        workspaceChannelSubscribedRef.current = false;
+        clearPresence();
+        clearTyping();
+      }
       if (nextStatus === "CLOSED") {
         setStatus("disconnected");
         return;
@@ -158,18 +211,36 @@ export function useWorkspaceChanges(workspaceId: string) {
               handleChannelStatus("postgres", nextStatus),
             );
 
-          broadcastChannel = supabase
+          workspaceChannel = supabase
             .channel(`workspace:${workspaceId}`, {
-              config: { private: true },
+              config: {
+                private: true,
+                presence: { key: currentUserId },
+              },
+            })
+            .on("presence", { event: "sync" }, () => {
+              if (!workspaceChannel) return;
+              syncPresence(
+                workspaceChannel.presenceState<WorkspacePresencePayload>(),
+              );
             })
             .on<DeleteBroadcastPayload>(
               "broadcast",
               { event: "DELETE" },
               handleDelete,
             )
-            .subscribe((nextStatus) =>
-              handleChannelStatus("broadcast", nextStatus),
-            );
+            .on<CommentTypingPayload>(
+              "broadcast",
+              { event: "typing" },
+              ({ payload }) => handleTypingEventRef.current(payload),
+            )
+            .subscribe((nextStatus) => {
+              handleChannelStatus("workspace", nextStatus);
+              if (nextStatus === "SUBSCRIBED" && workspaceChannel) {
+                void workspaceChannel.track(createPresencePayload());
+              }
+            });
+          workspaceChannelRef.current = workspaceChannel;
         } catch {
           if (active) setStatus("disconnected");
         }
@@ -178,16 +249,36 @@ export function useWorkspaceChanges(workspaceId: string) {
 
     return () => {
       active = false;
+      workspaceChannelSubscribedRef.current = false;
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("online", handleOnline);
       if (postgresChannel) void supabase.removeChannel(postgresChannel);
-      if (broadcastChannel) void supabase.removeChannel(broadcastChannel);
+      if (workspaceChannel) {
+        void workspaceChannel.untrack();
+        if (workspaceChannelRef.current === workspaceChannel) {
+          workspaceChannelRef.current = null;
+        }
+        void supabase.removeChannel(workspaceChannel);
+      }
+      clearPresence();
+      clearTyping();
     };
-  }, [connectionEpoch, workspaceId]);
+  }, [
+    clearPresence,
+    clearTyping,
+    connectionEpoch,
+    createPresencePayload,
+    currentUserId,
+    syncPresence,
+    workspaceId,
+  ]);
 
   return {
     status,
     latestChange: changeState.latestChange,
     resyncVersion: changeState.revision + reconnectVersion,
+    onlineMembers,
+    typingUserIds,
+    notifyTyping,
   };
 }

@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 12——任务与评论实时同步。任务和评论的 INSERT、UPDATE 通过按工作区过滤的 Postgres Changes 触发服务端重新获取；DELETE 通过数据库触发器发送仅含表名和主键的私有 Broadcast。页面支持连接状态、断线后重建频道与补偿刷新，非成员无法加入工作区私有 topic。
+> 当前进度：已完成阶段 13——私有工作区 Realtime 协作。任务与评论继续通过 Postgres Changes 和私有 DELETE Broadcast 同步；同一 `workspace:{workspaceId}` 私有频道新增 Presence 在线成员与评论 `typing` Broadcast，支持 500 ms 节流、2 秒自动停止、断线清理和重连。频道权限由 `realtime.messages` RLS 绑定工作区成员关系，非成员和被移除成员无法加入。
 
 ## 目标能力
 
@@ -102,7 +102,7 @@ pnpm exec supabase functions serve delete-task
 
 ## E2E 测试配置
 
-工作区、任务、评论/活动、成员和头像 E2E 会在 Node.js 测试进程中使用本地 Secret Key 创建并清理临时用户及其测试数据。先复制测试模板：
+工作区、任务、评论/活动、成员、头像和 Realtime 授权 E2E 会在 Node.js 测试进程中使用本地 Secret Key 创建并清理临时用户及其测试数据。先复制测试模板：
 
 ```bash
 cp .env.test.example .env.test.local
@@ -149,6 +149,7 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 ├── src/features/comments/ # 评论校验、查询、Server Actions 与界面
 ├── src/features/members/ # 最小成员 DTO、查询与只读成员列表
 ├── src/features/profiles/ # 公开昵称、头像路径 Action 与设置表单
+├── src/features/realtime/ # Postgres Changes、私有频道、Presence 与 typing 状态
 ├── src/features/storage/ # 头像文件校验、固定路径与公共 URL
 │   └── attachments/      # 私有附件校验、查询、补偿、Actions 与界面
 ├── src/features/tasks/   # 任务校验、查询、Server Actions、状态与界面

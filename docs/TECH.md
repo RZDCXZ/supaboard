@@ -436,8 +436,8 @@ Postgres Changes 易于学习，但每个事件都要进行订阅者访问检查
 阶段 12 已创建仅允许工作区成员接收 `broadcast` 的 SELECT policy，用于数据库 DELETE 通知。阶段 13 在 `realtime.messages` 上扩展 SELECT policy，并新增客户端发送所需的 INSERT policy：
 
 - `realtime.topic()` 必须匹配 `workspace:{uuid}`。
-- 从 topic 提取的 UUID 必须通过 `private.is_workspace_member`。
-- SELECT 的 `extension` 允许 `presence` 或 `broadcast`；INSERT 只开放阶段 13 明确需要的 Presence 与 typing Broadcast。
+- 从 topic 提取的 UUID 必须通过 `private.is_workspace_topic_member`。
+- SELECT 和 INSERT 的 `extension` 只允许 `presence` 或 `broadcast`。Realtime 在加入频道时按 extension 计算并缓存读写权限，授权检查使用的临时行不包含具体 Broadcast event，因此 RLS 不能继续收窄到 `event = 'typing'`；客户端发送器只构造 `typing` 事件，接收端仍校验 payload，但安全边界是工作区成员对该私有 topic 的 extension 级权限。
 - 项目 Realtime 设置使用私有频道；policy 更新后客户端刷新 JWT 或重新连接，避免继续使用缓存的旧授权。
 
 ## 13. Edge Functions

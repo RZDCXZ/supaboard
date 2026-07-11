@@ -17,7 +17,11 @@ const mocks = vi.hoisted(() => {
     name: string;
     channel: {
       on: ReturnType<typeof vi.fn>;
+      presenceState: ReturnType<typeof vi.fn>;
+      send: ReturnType<typeof vi.fn>;
       subscribe: ReturnType<typeof vi.fn>;
+      track: ReturnType<typeof vi.fn>;
+      untrack: ReturnType<typeof vi.fn>;
     };
     subscribeCallback: SubscribeCallback | null;
   }> = [];
@@ -27,7 +31,11 @@ const mocks = vi.hoisted(() => {
         name,
         channel: {
           on: vi.fn(),
+          presenceState: vi.fn(() => ({})),
+          send: vi.fn().mockResolvedValue("ok"),
           subscribe: vi.fn(),
+          track: vi.fn().mockResolvedValue("ok"),
+          untrack: vi.fn().mockResolvedValue("ok"),
         },
         subscribeCallback: null as SubscribeCallback | null,
       };
@@ -73,6 +81,18 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 const workspaceId = "11111111-1111-4111-8111-111111111111";
+const taskId = "22222222-2222-4222-8222-222222222222";
+const aliceId = "33333333-3333-4333-8333-333333333333";
+const bobId = "44444444-4444-4444-8444-444444444444";
+
+function useRealtime(currentWorkspaceId = workspaceId) {
+  return useWorkspaceChanges({
+    workspaceId: currentWorkspaceId,
+    currentUserId: aliceId,
+    currentUserDisplayName: "Alice",
+    activeTaskId: taskId,
+  });
+}
 
 function listener(
   type: string,
@@ -81,7 +101,9 @@ function listener(
 ) {
   const found = mocks.listeners.find(({ type: currentType, filter }) => {
     if (currentType !== type) return false;
-    if (type === "broadcast") return filter.event === tableOrEvent;
+    if (type === "broadcast" || type === "presence") {
+      return filter.event === tableOrEvent;
+    }
     return filter.table === tableOrEvent && filter.event === event;
   });
   if (!found) throw new Error(`缺少 ${type}:${tableOrEvent}:${event ?? ""} 监听器`);
@@ -102,7 +124,7 @@ describe("useWorkspaceChanges", () => {
   });
 
   it("subscribes to filtered inserts and updates plus private deletes", async () => {
-    const { result } = renderHook(() => useWorkspaceChanges(workspaceId));
+    const { result } = renderHook(() => useRealtime());
 
     expect(result.current.status).toBe("connecting");
     await waitFor(() => expect(mocks.client.channel).toHaveBeenCalledTimes(2));
@@ -113,7 +135,7 @@ describe("useWorkspaceChanges", () => {
       `workspace-postgres:${workspaceId}`,
     );
     expect(mocks.client.channel).toHaveBeenNthCalledWith(2, `workspace:${workspaceId}`, {
-      config: { private: true },
+      config: { private: true, presence: { key: aliceId } },
     });
     expect(mocks.listeners.map(({ type, filter }) => ({ type, filter }))).toEqual([
       {
@@ -152,12 +174,73 @@ describe("useWorkspaceChanges", () => {
           filter: `workspace_id=eq.${workspaceId}`,
         },
       },
+      { type: "presence", filter: { event: "sync" } },
       { type: "broadcast", filter: { event: "DELETE" } },
+      { type: "broadcast", filter: { event: "typing" } },
     ]);
   });
 
+  it("tracks presence and carries typing on the same private channel", async () => {
+    const { result } = renderHook(() => useRealtime());
+    await waitFor(() => expect(mocks.client.channel).toHaveBeenCalledTimes(2));
+    const workspaceChannel = mocks.channels.find(
+      ({ name }) => name === `workspace:${workspaceId}`,
+    )!.channel;
+
+    act(() => {
+      mocks.subscribe(`workspace-postgres:${workspaceId}`, "SUBSCRIBED");
+      mocks.subscribe(`workspace:${workspaceId}`, "SUBSCRIBED");
+    });
+    await waitFor(() => expect(workspaceChannel.track).toHaveBeenCalledTimes(1));
+    expect(workspaceChannel.track).toHaveBeenCalledWith({
+      userId: aliceId,
+      displayName: "Alice",
+      onlineAt: expect.any(String),
+    });
+
+    workspaceChannel.presenceState.mockReturnValue({
+      alice: [
+        {
+          presence_ref: "alice",
+          userId: aliceId,
+          displayName: "Alice",
+          onlineAt: "2026-07-11T00:00:00.000Z",
+        },
+      ],
+      bob: [
+        {
+          presence_ref: "bob",
+          userId: bobId,
+          displayName: "Bob",
+          onlineAt: "2026-07-11T00:00:01.000Z",
+        },
+      ],
+    });
+    act(() => listener("presence", "sync")({}));
+    expect(result.current.onlineMembers.map(({ userId }) => userId)).toEqual([
+      aliceId,
+      bobId,
+    ]);
+
+    act(() => result.current.notifyTyping(true));
+    expect(workspaceChannel.send).toHaveBeenCalledWith({
+      type: "broadcast",
+      event: "typing",
+      payload: { taskId, userId: aliceId, isTyping: true },
+    });
+
+    act(() =>
+      listener("broadcast", "typing")({
+        type: "broadcast",
+        event: "typing",
+        payload: { taskId, userId: bobId, isTyping: true },
+      }),
+    );
+    expect(result.current.typingUserIds).toEqual([bobId]);
+  });
+
   it("maps events into changes and ignores duplicate payloads", async () => {
-    const { result } = renderHook(() => useWorkspaceChanges(workspaceId));
+    const { result } = renderHook(() => useRealtime());
     await waitFor(() => expect(mocks.client.channel).toHaveBeenCalledTimes(2));
 
     act(() => {
@@ -207,7 +290,7 @@ describe("useWorkspaceChanges", () => {
   });
 
   it("maps connection failures, browser connectivity and reconnection", async () => {
-    const { result } = renderHook(() => useWorkspaceChanges(workspaceId));
+    const { result } = renderHook(() => useRealtime());
     await waitFor(() => expect(mocks.client.channel).toHaveBeenCalledTimes(2));
 
     act(() => {
@@ -239,7 +322,7 @@ describe("useWorkspaceChanges", () => {
 
   it("removes the old channel when the workspace changes or unmounts", async () => {
     const { rerender, unmount } = renderHook(
-      ({ currentWorkspaceId }) => useWorkspaceChanges(currentWorkspaceId),
+      ({ currentWorkspaceId }) => useRealtime(currentWorkspaceId),
       { initialProps: { currentWorkspaceId: workspaceId } },
     );
     await waitFor(() => expect(mocks.client.channel).toHaveBeenCalledTimes(2));
@@ -252,5 +335,10 @@ describe("useWorkspaceChanges", () => {
 
     unmount();
     expect(mocks.client.removeChannel).toHaveBeenCalledTimes(4);
+    expect(
+      mocks.channels
+        .filter(({ name }) => name.startsWith("workspace:"))
+        .every(({ channel }) => channel.untrack.mock.calls.length === 1),
+    ).toBe(true);
   });
 });

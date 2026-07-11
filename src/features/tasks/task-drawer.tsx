@@ -66,6 +66,9 @@ export function TaskDrawer({
   commentsError = false,
   currentUserId,
   workspaceRole,
+  typingMembers = [],
+  onTypingChange,
+  onDeletePendingChange,
   onOpenChange,
   onUpdated,
   onDeleted,
@@ -80,6 +83,9 @@ export function TaskDrawer({
   commentsError?: boolean;
   currentUserId: string;
   workspaceRole: WorkspaceRole;
+  typingMembers?: readonly TaskMemberOption[];
+  onTypingChange?: (isTyping: boolean) => void;
+  onDeletePendingChange?: (taskId: string, pending: boolean) => void;
   onOpenChange: (open: boolean) => void;
   onUpdated: (task: TaskItem) => void;
   onDeleted: (taskId: string) => void;
@@ -131,19 +137,20 @@ export function TaskDrawer({
   function confirmDelete() {
     setError(null);
     setPendingField("delete");
+    onDeletePendingChange?.(currentTask.id, true);
 
     startTransition(async () => {
       const result = await deleteTask({ workspaceId, taskId: currentTask.id });
       setPendingField(null);
 
       if (!result.ok) {
+        onDeletePendingChange?.(currentTask.id, false);
         setError(result.error);
         return;
       }
 
       setDeleteOpen(false);
       onDeleted(result.data);
-      onOpenChange(false);
       toast.success("任务已删除");
     });
   }
@@ -338,6 +345,8 @@ export function TaskDrawer({
             realtimeChange={realtimeChange}
             currentUserId={currentUserId}
             workspaceRole={workspaceRole}
+            typingMembers={typingMembers}
+            onTypingChange={onTypingChange}
           />
         </div>
       </AppDrawer>

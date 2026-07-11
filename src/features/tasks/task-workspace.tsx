@@ -1,9 +1,19 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useOptimistic, useState, useTransition } from "react";
+import {
+  useEffect,
+  useOptimistic,
+  useState,
+  useTransition,
+} from "react";
 
 import { InlineAlert } from "@/components/feedback/inline-alert";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { CommentItem } from "@/features/comments/types";
 import type { AttachmentItem } from "@/features/storage/attachments/types";
@@ -37,6 +47,10 @@ function matchesFilters(task: TaskItem, filters: TaskFilters) {
   }
 
   return true;
+}
+
+function avatarFallback(displayName: string) {
+  return displayName.trim().slice(0, 1).toUpperCase() || "用";
 }
 
 function adjustStats(
@@ -127,10 +141,48 @@ export function TaskWorkspace({
   );
   const [createOpen, setCreateOpen] = useState(false);
   const [isNavigating, startTransition] = useTransition();
-  const { status, latestChange, resyncVersion } =
-    useWorkspaceChanges(workspaceId);
+  const [locallyDeletingTaskId, setLocallyDeletingTaskId] = useState<
+    string | null
+  >(null);
+  const currentUserDisplayName =
+    members.find(({ id }) => id === currentUserId)?.displayName ?? "当前用户";
+  const {
+    status,
+    latestChange,
+    resyncVersion,
+    onlineMembers,
+    typingUserIds,
+    notifyTyping,
+  } = useWorkspaceChanges({
+    workspaceId,
+    currentUserId,
+    currentUserDisplayName,
+    activeTaskId: drawerTask?.id ?? null,
+  });
   const searchParamsString = searchParams.toString();
   const hasFilters = filters.status !== "all" || filters.assignee !== "all";
+  const membersById = new Map(members.map((member) => [member.id, member]));
+  const visibleOnlineMembers = onlineMembers.map((presence) => {
+    const member = membersById.get(presence.userId);
+    return {
+      id: presence.userId,
+      displayName: member?.displayName ?? presence.displayName,
+      avatarUrl: member?.avatarUrl ?? null,
+    };
+  });
+  const displayedOnlineMembers = visibleOnlineMembers.slice(0, 5);
+  const hiddenOnlineMemberCount = Math.max(0, visibleOnlineMembers.length - 5);
+  const typingMembers = typingUserIds.map((userId) => {
+    const member = membersById.get(userId);
+    return {
+      id: userId,
+      displayName:
+        member?.displayName ??
+        onlineMembers.find((presence) => presence.userId === userId)?.displayName ??
+        "成员",
+      avatarUrl: member?.avatarUrl ?? null,
+    };
+  });
 
   const realtimeStatusLabels = {
     connecting: "连接中",
@@ -139,8 +191,13 @@ export function TaskWorkspace({
     disconnected: "已断开",
   } as const;
 
+  const isLocalDeleteEcho =
+    latestChange?.table === "tasks" &&
+    latestChange.eventType === "DELETE" &&
+    locallyDeletingTaskId === latestChange.id;
   const remotelyDeletedTaskId =
     latestChange?.table === "tasks" && latestChange.eventType === "DELETE"
+      && !isLocalDeleteEcho
       ? latestChange.id
       : null;
   const visibleDrawerTask =
@@ -151,6 +208,7 @@ export function TaskWorkspace({
 
   useEffect(() => {
     if (resyncVersion === 0) return;
+    if (isLocalDeleteEcho) return;
 
     startTransition(() => {
       if (
@@ -161,14 +219,16 @@ export function TaskWorkspace({
         const params = new URLSearchParams(searchParamsString);
         params.delete("task");
         const query = params.toString();
-        const nextHref = query ? `${pathname}?${query}` : pathname;
-        router.replace(nextHref, { scroll: false });
+        router.replace(query ? `${pathname}?${query}` : pathname, {
+          scroll: false,
+        });
       }
 
       router.refresh();
     });
   }, [
     drawerTask?.id,
+    isLocalDeleteEcho,
     latestChange,
     pathname,
     resyncVersion,
@@ -241,13 +301,49 @@ export function TaskWorkspace({
 
   return (
     <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-      <p
-        role="status"
-        aria-label="实时同步状态"
-        className="text-sm text-muted-foreground"
-      >
-        实时同步：{realtimeStatusLabels[status]}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+        <p
+          role="status"
+          aria-label="实时同步状态"
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+        >
+          <span
+            aria-hidden="true"
+            className={`size-2 rounded-full ${
+              status === "connected" ? "bg-emerald-500" : "bg-muted-foreground/50"
+            }`}
+          />
+          实时同步：{realtimeStatusLabels[status]}
+        </p>
+        <div
+          aria-label="在线成员"
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+        >
+          <span>在线 {visibleOnlineMembers.length}</span>
+          {visibleOnlineMembers.length > 0 ? (
+            <div className="flex -space-x-2" aria-hidden="true">
+              {displayedOnlineMembers.map((member) => (
+                <Avatar
+                  key={member.id}
+                  size="sm"
+                  title={`${member.displayName} 在线`}
+                  className="ring-2 ring-background"
+                >
+                  {member.avatarUrl ? (
+                    <AvatarImage src={member.avatarUrl} alt="" />
+                  ) : null}
+                  <AvatarFallback>{avatarFallback(member.displayName)}</AvatarFallback>
+                </Avatar>
+              ))}
+              {hiddenOnlineMemberCount > 0 ? (
+                <span className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium ring-2 ring-background">
+                  +{hiddenOnlineMemberCount}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
       <TaskStats stats={currentStats} error={statsError} />
 
       <section className="flex flex-col gap-4" aria-label="任务列表">
@@ -331,6 +427,11 @@ export function TaskWorkspace({
           commentsError={commentsError}
           currentUserId={currentUserId}
           workspaceRole={workspaceRole}
+          typingMembers={typingMembers}
+          onTypingChange={notifyTyping}
+          onDeletePendingChange={(taskId, pending) => {
+            setLocallyDeletingTaskId(pending ? taskId : null);
+          }}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) closeTask();
           }}
@@ -363,9 +464,7 @@ export function TaskWorkspace({
                 dispatchStats({ type: "remove", status: drawerTask.status });
               }
               dispatchTasks({ type: "remove", taskId });
-              setDrawerTask(null);
               router.replace(href(params), { scroll: false });
-              router.refresh();
             });
           }}
         />

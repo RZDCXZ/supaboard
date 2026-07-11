@@ -186,4 +186,29 @@ describe("CommentSection", () => {
     );
     expect(screen.queryByText("Second")).not.toBeInTheDocument();
   });
+
+  it("shows remote typing and reports local input activity", () => {
+    const onTypingChange = vi.fn();
+    render(
+      <CommentSection
+        workspaceId={workspaceId}
+        taskId={taskId}
+        comments={[]}
+        currentUserId={aliceId}
+        workspaceRole="owner"
+        typingMembers={[{ id: bobId, displayName: "Bob" }]}
+        onTypingChange={onTypingChange}
+      />,
+    );
+
+    expect(screen.getByRole("status", { name: "评论输入状态" })).toHaveTextContent(
+      "Bob 正在输入",
+    );
+
+    const input = screen.getByRole("textbox", { name: "评论" });
+    fireEvent.change(input, { target: { value: "Hello" } });
+    expect(onTypingChange).toHaveBeenLastCalledWith(true);
+    fireEvent.change(input, { target: { value: "" } });
+    expect(onTypingChange).toHaveBeenLastCalledWith(false);
+  });
 });

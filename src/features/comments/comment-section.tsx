@@ -38,6 +38,8 @@ function avatarFallback(displayName: string) {
   return displayName.trim().slice(0, 1).toUpperCase() || "用";
 }
 
+const NOOP_TYPING_CHANGE = () => undefined;
+
 export function CommentSection({
   workspaceId,
   taskId,
@@ -46,6 +48,8 @@ export function CommentSection({
   realtimeChange = null,
   currentUserId,
   workspaceRole,
+  typingMembers = [],
+  onTypingChange = NOOP_TYPING_CHANGE,
 }: {
   workspaceId: string;
   taskId: string;
@@ -54,6 +58,8 @@ export function CommentSection({
   realtimeChange?: WorkspaceChange | null;
   currentUserId: string;
   workspaceRole: WorkspaceRole;
+  typingMembers?: readonly { id: string; displayName: string }[];
+  onTypingChange?: (isTyping: boolean) => void;
 }) {
   const [currentComments, dispatchComments] = useReducer(
     commentReducer,
@@ -75,6 +81,15 @@ export function CommentSection({
     pendingOperation === null &&
     trimmedBody.length >= 1 &&
     trimmedBody.length <= 2000;
+  const typingMessage =
+    typingMembers.length === 0
+      ? null
+      : `${typingMembers
+          .slice(0, 2)
+          .map(({ displayName }) => displayName)
+          .join("、")}${
+          typingMembers.length > 2 ? ` 等 ${typingMembers.length} 人` : ""
+        } 正在输入…`;
 
   useEffect(() => {
     dispatchComments({ type: "replace", comments });
@@ -98,6 +113,7 @@ export function CommentSection({
 
     setError(null);
     setPendingOperation("create");
+    onTypingChange(false);
     startTransition(async () => {
       const result = await createComment({ workspaceId, taskId, body });
       setPendingOperation(null);
@@ -145,6 +161,17 @@ export function CommentSection({
         <InlineAlert variant="error" title="评论加载失败">
           暂时无法读取已有评论，仍可以尝试发表评论。
         </InlineAlert>
+      ) : null}
+
+      {typingMessage ? (
+        <p
+          role="status"
+          aria-label="评论输入状态"
+          aria-live="polite"
+          className="text-sm text-muted-foreground"
+        >
+          {typingMessage}
+        </p>
       ) : null}
 
       {currentComments.length === 0 && !commentsError ? (
@@ -232,7 +259,11 @@ export function CommentSection({
               aria-invalid={Boolean(error?.fields?.body) || undefined}
               aria-describedby="task-comment-count"
               className="min-h-24"
-              onChange={(event) => setBody(event.target.value)}
+              onChange={(event) => {
+                const nextBody = event.target.value;
+                setBody(nextBody);
+                onTypingChange(nextBody.trim().length > 0);
+              }}
             />
             <div className="flex items-center justify-between gap-3">
               <FieldError>{error?.fields?.body}</FieldError>

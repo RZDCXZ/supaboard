@@ -957,6 +957,7 @@ pnpm typecheck
 - 使用公开 channel：非成员可以监听临时状态。
 - 把在线状态写数据库：Presence 已适合短暂连接状态，不需要永久记录。
 - 把 displayName 当授权依据：昵称可修改，只能用于展示。
+- 在 INSERT policy 中限制 `event = 'typing'`：Realtime 加入频道时按 extension 计算权限，授权临时行没有具体 event；应在 RLS 中限制成员、topic 和 `presence`/`broadcast` extension，并由客户端契约只发送 `typing`。
 
 ### 学习复盘
 
@@ -969,6 +970,8 @@ pnpm typecheck
 git add supabase src/features/realtime src/features/comments tests
 git commit -m "feat: add private workspace presence"
 ```
+
+> 实施状态（2026-07-11）：已完成。阶段 12 的私有工作区频道现同时承载 DELETE Broadcast、Presence 与评论 `typing` Broadcast；在线成员按用户去重，头像组最多展示 5 人。typing 发送最多每 500 ms 一次，停止输入或接收端超过 2 秒都会清理，任务切换、断线和卸载也会移除 timer 与临时状态。`realtime.messages` 的 SELECT/INSERT policy 均以工作区成员关系和 `presence`/`broadcast` extension 授权；由于 Realtime 在 join 时不提供具体 event，`typing` 事件名由客户端契约约束。pgTAP、Vitest 和双窗口 Playwright 覆盖 Bob 加入、Charlie 拒绝、Bob 被移除后重连失败、在线头像与输入提示自动消失。
 
 ## 16. 阶段 14：Edge Function 与成员管理
 
