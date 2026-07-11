@@ -12,6 +12,7 @@ import { WorkspaceTabs } from "@/features/activity/workspace-tabs";
 import { getTaskComments } from "@/features/comments/queries";
 import { MemberList } from "@/features/members/member-list";
 import { getWorkspaceMembers } from "@/features/members/queries";
+import { getTaskAttachments } from "@/features/storage/attachments/queries";
 import {
   getWorkspaceTask,
   getWorkspaceTaskPage,
@@ -176,7 +177,14 @@ export default async function WorkspacePage({
     );
   }
 
-  const [taskPageResult, membersResult, statsResult, selectedTaskResult, commentsResult] =
+  const [
+    taskPageResult,
+    membersResult,
+    statsResult,
+    selectedTaskResult,
+    commentsResult,
+    attachmentsResult,
+  ] =
     await Promise.allSettled([
       getWorkspaceTaskPage(supabase, workspaceId, filters),
       getWorkspaceMembers(supabase, workspaceId),
@@ -186,6 +194,15 @@ export default async function WorkspacePage({
         : Promise.resolve(null),
       filters.taskId
         ? getTaskComments(supabase, workspaceId, filters.taskId)
+        : Promise.resolve([]),
+      filters.taskId
+        ? getTaskAttachments(
+            supabase,
+            workspaceId,
+            filters.taskId,
+            workspace.currentUserId,
+            workspace.role,
+          )
         : Promise.resolve([]),
     ]);
 
@@ -241,6 +258,9 @@ export default async function WorkspacePage({
         taskPage={taskPage}
         members={membersResult.status === "fulfilled" ? membersResult.value : []}
         comments={commentsResult.status === "fulfilled" ? commentsResult.value : []}
+        attachments={
+          attachmentsResult.status === "fulfilled" ? attachmentsResult.value : []
+        }
         commentsError={Boolean(filters.taskId) && commentsResult.status === "rejected"}
         currentUserId={workspace.currentUserId}
         workspaceRole={workspace.role}

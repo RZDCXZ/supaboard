@@ -40,6 +40,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { CommentSection } from "@/features/comments/comment-section";
 import type { CommentItem } from "@/features/comments/types";
 import type { WorkspaceRole } from "@/features/workspaces/types";
+import { AttachmentSection } from "@/features/storage/attachments/attachment-section";
+import type { AttachmentItem } from "@/features/storage/attachments/types";
 
 import { deleteTask, updateTask } from "./actions";
 import type {
@@ -58,6 +60,7 @@ export function TaskDrawer({
   task,
   members,
   comments,
+  attachments = [],
   commentsError = false,
   currentUserId,
   workspaceRole,
@@ -70,6 +73,7 @@ export function TaskDrawer({
   task: TaskItem;
   members: readonly TaskMemberOption[];
   comments: readonly CommentItem[];
+  attachments?: readonly AttachmentItem[];
   commentsError?: boolean;
   currentUserId: string;
   workspaceRole: WorkspaceRole;
@@ -310,6 +314,19 @@ export function TaskDrawer({
 
           <Separator />
 
+          <AttachmentSection
+            workspaceId={workspaceId}
+            taskId={currentTask.id}
+            attachments={attachments}
+            onCountChange={(attachmentCount) => {
+              const nextTask = { ...currentTask, attachmentCount };
+              setCurrentTask(nextTask);
+              onUpdated(nextTask);
+            }}
+          />
+
+          <Separator />
+
           <CommentSection
             workspaceId={workspaceId}
             taskId={currentTask.id}
@@ -326,7 +343,7 @@ export function TaskDrawer({
           <AlertDialogHeader>
             <AlertDialogTitle>删除“{currentTask.title}”？</AlertDialogTitle>
             <AlertDialogDescription>
-              任务及其评论会被永久删除，活动记录会保留。当前阶段尚未接入附件对象清理。
+              任务、评论和附件会被永久删除，活动记录会保留。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

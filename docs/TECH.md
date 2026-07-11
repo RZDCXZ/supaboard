@@ -250,7 +250,7 @@ CLI 命令和参数在执行前通过对应的 `--help` 确认，不凭记忆猜
 | `size_bytes` | `bigint` | 非空，1～10485760 |
 | `created_at` | `timestamptz` | 非空，默认 `now()` |
 
-上传流程是“先上传对象，再写元数据”；元数据写入失败时客户端立即删除刚上传对象。删除任务前，Server Action 先列出并删除对象，成功后再删除任务。定期垃圾回收不在本 Demo 范围。
+上传流程是“先上传对象，再写元数据”；元数据写入失败时客户端立即删除刚上传对象。删除任务由 `delete-task` Edge Function 完整编排：用户客户端先证明调用者可删除任务，管理员客户端只清理附件对象，成功后用户客户端再删除任务记录。定期垃圾回收不在本 Demo 范围。
 
 ### 6.7 `activity_logs`
 
@@ -438,9 +438,24 @@ Postgres Changes 易于学习，但每个事件都要进行订阅者访问检查
 - `extension` 只允许 `presence` 或 `broadcast`。
 - 项目 Realtime 设置使用私有频道；policy 更新后客户端刷新 JWT 或重新连接，避免继续使用缓存的旧授权。
 
-## 13. Edge Function：`add-member-by-email`
+## 13. Edge Functions
 
-### 13.1 接口
+### 13.1 `delete-task`
+
+```http
+POST /functions/v1/delete-task
+Authorization: Bearer <user-jwt>
+apikey: <publishable-key>
+Content-Type: application/json
+```
+
+请求体为 `{ "workspaceId": "uuid", "taskId": "uuid" }`。函数保持用户 JWT 验证开启，先用用户客户端读取任务和附件元数据，证明调用者仍是工作区成员；权限通过后，管理员客户端只按元数据中的路径分批调用 Storage API 删除对象；全部对象删除成功后，函数再用用户客户端删除任务，以保留 RLS 与活动记录操作者。
+
+成功返回 `200 { "taskId": "uuid" }`。参数、认证、权限、对象清理和任务删除分别映射为 `400`、`401`、`403`、`500 ATTACHMENT_CLEANUP_FAILED` 和 `500 TASK_DELETE_FAILED`；错误只返回稳定文案和 request ID，不返回对象路径或 Storage 内部错误。重复调用对象清理保持幂等，任何清理失败都不得提前删除任务。
+
+### 13.2 `add-member-by-email`
+
+#### 13.2.1 接口
 
 ```http
 POST /functions/v1/add-member-by-email
@@ -478,7 +493,7 @@ Content-Type: application/json
 }
 ```
 
-### 13.2 执行顺序
+#### 13.2.2 执行顺序
 
 1. 只接受 POST，解析并用 Zod 校验 UUID 和标准化邮箱。
 2. 保持函数 `verify_jwt = true`，让平台在 handler 前拒绝无效用户 JWT。
@@ -490,7 +505,7 @@ Content-Type: application/json
 
 第 5 步仅适合学习 Demo。生产系统应改为持久化邀请记录和邮件接受流程，不能无限扫描 Auth 用户。
 
-### 13.3 安全边界
+#### 13.2.3 安全边界
 
 - 用户客户端负责证明调用者拥有工作区权限。
 - 管理员客户端只在权限检查成功后使用。

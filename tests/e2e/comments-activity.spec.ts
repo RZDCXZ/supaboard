@@ -39,6 +39,7 @@ test("成员可以评论并查看不可篡改的任务活动", async ({
   await reopenedDrawer.getByRole("button", { name: "更多操作" }).click();
   await page.getByRole("menuitem", { name: "删除任务" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "删除任务" }).click();
+  await expect(reopenedDrawer).toBeHidden();
 
   await page.getByRole("tab", { name: "活动" }).click();
   await expect(page.getByText(/删除了任务“Stage 8 task”/)).toBeVisible();

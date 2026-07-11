@@ -42,6 +42,7 @@ function task(): TaskItem {
     createdBy: "33333333-3333-4333-8333-333333333333",
     createdAt: "2026-07-10T00:00:00Z",
     updatedAt: "2026-07-10T01:00:00Z",
+    attachmentCount: 0,
   };
 }
 
@@ -59,6 +60,7 @@ test("TaskWorkspace keeps filters, paging and task selection in the URL", () => 
       taskPage={{ tasks: [task()], page: 1, pageSize: 20, total: 21, totalPages: 2 }}
       members={[]}
       comments={[]}
+      attachments={[]}
       currentUserId="33333333-3333-4333-8333-333333333333"
       workspaceRole="owner"
       stats={{ total: 21, todo: 0, inProgress: 0, done: 21 }}
@@ -108,6 +110,23 @@ test("TaskWorkspace passes selected task comments and permissions into the drawe
           updatedAt: "2026-07-10T00:00:00Z",
         },
       ]}
+      attachments={[
+        {
+          id: "66666666-6666-4666-8666-666666666666",
+          taskId,
+          workspaceId,
+          uploader: {
+            id: "33333333-3333-4333-8333-333333333333",
+            displayName: "Alice",
+            avatarUrl: null,
+          },
+          fileName: "stage-11.txt",
+          contentType: "text/plain",
+          sizeBytes: 12,
+          createdAt: "2026-07-11T00:00:00Z",
+          canDelete: true,
+        },
+      ]}
       currentUserId="33333333-3333-4333-8333-333333333333"
       workspaceRole="owner"
       stats={{ total: 1, todo: 0, inProgress: 0, done: 1 }}
@@ -117,5 +136,6 @@ test("TaskWorkspace passes selected task comments and permissions into the drawe
   );
 
   expect(screen.getByText("Stage 8 comment")).toBeVisible();
+  expect(screen.getByText("stage-11.txt")).toBeVisible();
   expect(screen.getByRole("button", { name: "删除 Alice 的评论" })).toBeVisible();
 });

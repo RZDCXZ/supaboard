@@ -16,7 +16,7 @@ import type {
 } from "./types";
 
 export const TASK_SELECT =
-  "id, workspace_id, title, description, status, priority, assignee_id, created_by, created_at, updated_at, assignee:profiles!tasks_assignee_id_fkey(id, display_name, avatar_path)" as const;
+  "id, workspace_id, title, description, status, priority, assignee_id, created_by, created_at, updated_at, assignee:profiles!tasks_assignee_id_fkey(id, display_name, avatar_path), attachments(count)" as const;
 
 export type TaskRow = {
   id: string;
@@ -29,6 +29,7 @@ export type TaskRow = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  attachments: { count: number }[];
   assignee: {
     id: string;
     display_name: string;
@@ -80,6 +81,7 @@ export function mapTaskRow(
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    attachmentCount: Number(row.attachments?.[0]?.count ?? 0),
   };
 }
 

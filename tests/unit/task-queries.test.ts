@@ -31,6 +31,7 @@ function taskRow() {
     created_by: userId,
     created_at: "2026-07-10T00:00:00Z",
     updated_at: "2026-07-10T01:00:00Z",
+    attachments: [{ count: 2 }],
     assignee: {
       id: userId,
       display_name: "Alice",
@@ -88,6 +89,7 @@ describe("task queries", () => {
     expect(result.tasks[0]?.assignee?.avatarUrl).toBe(
       `https://storage.test/${userId}/avatar.png`,
     );
+    expect(result.tasks[0]?.attachmentCount).toBe(2);
   });
 
   it("filters by a concrete assignee", async () => {

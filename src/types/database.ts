@@ -82,6 +82,60 @@ export type Database = {
           },
         ]
       }
+      attachments: {
+        Row: {
+          bucket_id: string
+          content_type: string
+          created_at: string
+          file_name: string
+          id: string
+          object_path: string
+          size_bytes: number
+          task_id: string
+          uploader_id: string
+          workspace_id: string
+        }
+        Insert: {
+          bucket_id?: string
+          content_type: string
+          created_at?: string
+          file_name: string
+          id?: string
+          object_path: string
+          size_bytes: number
+          task_id: string
+          uploader_id: string
+          workspace_id: string
+        }
+        Update: {
+          bucket_id?: string
+          content_type?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          object_path?: string
+          size_bytes?: number
+          task_id?: string
+          uploader_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_task_workspace_fkey"
+            columns: ["task_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "attachments_uploader_id_fkey"
+            columns: ["uploader_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comments: {
         Row: {
           author_id: string

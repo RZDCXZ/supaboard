@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 10——公共头像 Storage。登录用户可修改公开昵称，并通过普通用户会话上传、替换自己的 JPEG、PNG 或 WebP 头像；`avatars` 公共桶、固定路径约束和 Storage RLS 会阻止跨用户写入或删除。头像已接入设置页、侧栏、成员、任务、评论和活动视图，Auth、工作区、任务、评论及多租户隔离能力保持可用。
+> 当前进度：已完成阶段 11——私有任务附件 Storage。工作区成员可直传 JPEG、PNG、WebP、PDF 和纯文本附件，并通过 60 秒签名链接下载；附件元数据、私有 bucket 和 Storage RLS 共同保证多租户隔离，普通附件仅上传者或 Owner 可删除。删除带附件任务时，`delete-task` Edge Function 会先清理对象再删除任务。
 
 ## 目标能力
 
@@ -80,6 +80,12 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=本地 CLI 输出的 Publishable Key
 pnpm dev
 ```
 
+涉及带附件任务删除时，在另一个终端启动本地 Edge Function：
+
+```bash
+pnpm exec supabase functions serve delete-task
+```
+
 默认访问地址为 <http://localhost:3000>。
 
 ## 本地演示账号
@@ -124,6 +130,7 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 | `pnpm test:e2e` | 启动开发服务器并运行 Playwright Chromium 测试 |
 | `pnpm exec supabase start` | 启动本地 Supabase 服务 |
 | `pnpm exec supabase status` | 查看本地服务地址和开发凭据 |
+| `pnpm exec supabase functions serve delete-task` | 启动任务删除 Edge Function |
 | `pnpm exec supabase db reset` | 从迁移和 Seed 重建本地数据库 |
 | `pnpm exec supabase test db --local` | 运行本地 pgTAP 数据库测试 |
 | `pnpm exec supabase gen types typescript --local > src/types/database.ts` | 重新生成数据库类型 |
@@ -143,11 +150,13 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 ├── src/features/members/ # 最小成员 DTO、查询与只读成员列表
 ├── src/features/profiles/ # 公开昵称、头像路径 Action 与设置表单
 ├── src/features/storage/ # 头像文件校验、固定路径与公共 URL
+│   └── attachments/      # 私有附件校验、查询、补偿、Actions 与界面
 ├── src/features/tasks/   # 任务校验、查询、Server Actions、状态与界面
 ├── src/features/workspaces/ # 工作区校验、查询、Server Action 与组件
 ├── src/lib/supabase/     # Browser/Server Client 工厂与环境校验
 ├── src/types/            # 由本地数据库生成的 TypeScript 类型
 ├── supabase/             # 本地配置、迁移、Seed 与 pgTAP 测试
+│   └── functions/        # 用户 JWT 认证的 Edge Functions
 ├── tests/e2e/            # Playwright 端到端测试与临时身份夹具
 ├── tests/unit/           # Vitest 单元测试
 ├── .env.example          # 可提交的环境变量模板

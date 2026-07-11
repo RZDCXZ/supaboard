@@ -138,6 +138,11 @@ export async function createAuthenticatedClient(actor: TestActor) {
   return client;
 }
 
+export function createAdminClient() {
+  const { url, secretKey } = readSupabaseTestConfig(true);
+  return createClient<Database>(url, secretKey!, clientOptions());
+}
+
 async function loginAsActor(page: Page, actor: TestActor) {
   await page.goto("/login");
   await page.getByLabel("邮箱").fill(actor.email);
@@ -161,6 +166,22 @@ async function deleteOwnedWorkspaces(
   if (error) throw new Error(`无法读取测试工作区: ${error.message}`);
 
   for (const workspace of data ?? []) {
+    const { data: attachments, error: attachmentError } = await admin
+      .from("attachments")
+      .select("object_path")
+      .eq("workspace_id", workspace.id);
+    if (attachmentError) {
+      throw new Error(`无法读取测试附件: ${attachmentError.message}`);
+    }
+    if (attachments && attachments.length > 0) {
+      const { error: storageError } = await admin.storage
+        .from("attachments")
+        .remove(attachments.map(({ object_path }) => object_path));
+      if (storageError) {
+        throw new Error(`无法清理测试附件对象: ${storageError.message}`);
+      }
+    }
+
     // 工作区级级联删除任务时，任务删除触发器会尝试写入仍引用该工作区的活动日志。
     // 先显式删除任务，让触发器在工作区仍存在时完成记录，再删除工作区并级联清理日志。
     const { error: taskDeleteError } = await admin
@@ -223,8 +244,7 @@ async function createActor(
 
 export const test = base.extend<Fixtures>({
   actors: async ({}, fixtureUse, testInfo) => {
-    const { url, secretKey } = readSupabaseTestConfig(true);
-    const admin = createClient<Database>(url, secretKey!, clientOptions());
+    const admin = createAdminClient();
     const runId = `${testInfo.parallelIndex}-${randomUUID()}`;
     const password = `${randomUUID()}-Aa1!`;
     const created: TestActor[] = [];

@@ -161,21 +161,58 @@ describe("task actions", () => {
   });
 
   it("does not claim a hidden task was deleted", async () => {
-    const builder = {
-      delete: vi.fn(),
-      eq: vi.fn(),
-      select: vi.fn(),
-      maybeSingle: vi.fn(),
-    };
-    builder.delete.mockReturnValue(builder);
-    builder.eq.mockReturnValue(builder);
-    builder.select.mockReturnValue(builder);
-    builder.maybeSingle.mockResolvedValue({ data: null, error: null });
-    mocks.createClient.mockResolvedValue(clientWithBuilder(builder));
+    const invoke = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        context: new Response(
+          JSON.stringify({
+            error: {
+              code: "FORBIDDEN",
+              message: "任务不存在或你没有权限删除",
+              requestId: "request-123",
+            },
+          }),
+          { status: 403, headers: { "content-type": "application/json" } },
+        ),
+      },
+    });
+    mocks.createClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: userId } },
+          error: null,
+        }),
+      },
+      functions: { invoke },
+    });
 
     await expect(deleteTask({ workspaceId, taskId })).resolves.toEqual({
       ok: false,
       error: { code: "FORBIDDEN", message: "任务不存在或你没有权限删除" },
+    });
+  });
+
+  it("delegates complete task deletion to the authenticated Edge Function", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      data: { taskId },
+      error: null,
+    });
+    mocks.createClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: userId } },
+          error: null,
+        }),
+      },
+      functions: { invoke },
+    });
+
+    await expect(deleteTask({ workspaceId, taskId })).resolves.toEqual({
+      ok: true,
+      data: taskId,
+    });
+    expect(invoke).toHaveBeenCalledWith("delete-task", {
+      body: { workspaceId, taskId },
     });
   });
 });

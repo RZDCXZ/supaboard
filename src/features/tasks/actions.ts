@@ -114,6 +114,54 @@ function revalidateWorkspace(workspaceId: string) {
   revalidatePath(`/app/workspaces/${workspaceId}`);
 }
 
+async function edgeDeleteError(error: unknown): Promise<ActionResult<never>> {
+  let payload: {
+    error?: { code?: string; message?: string; requestId?: string };
+  } | null = null;
+  const context =
+    typeof error === "object" && error && "context" in error
+      ? error.context
+      : null;
+
+  if (context instanceof Response) {
+    try {
+      payload = await context.json();
+    } catch {
+      payload = null;
+    }
+  }
+
+  const code = payload?.error?.code;
+  if (code === "FORBIDDEN") {
+    return {
+      ok: false,
+      error: { code: "FORBIDDEN", message: "任务不存在或你没有权限删除" },
+    };
+  }
+
+  if (code === "NOT_AUTHENTICATED") {
+    return {
+      ok: false,
+      error: { code: "NOT_AUTHENTICATED", message: "请先登录后再删除任务" },
+    };
+  }
+
+  console.error("delete-task Edge Function failed", {
+    code,
+    requestId: payload?.error?.requestId,
+  });
+  return {
+    ok: false,
+    error: {
+      code: "INTERNAL_ERROR",
+      message:
+        code === "ATTACHMENT_CLEANUP_FAILED"
+          ? "附件清理失败，任务尚未删除，请稍后重试"
+          : "暂时无法删除任务，请稍后重试",
+    },
+  };
+}
+
 export async function createTask(input: unknown): Promise<ActionResult<TaskItem>> {
   const parsed = createTaskInputSchema.safeParse(input);
   if (!parsed.success) return validationError(parsed.error);
@@ -191,17 +239,16 @@ export async function deleteTask(input: unknown): Promise<ActionResult<string>> 
     };
   }
 
-  const { data, error } = await authenticated.supabase
-    .from("tasks")
-    .delete()
-    .eq("workspace_id", parsed.data.workspaceId)
-    .eq("id", parsed.data.taskId)
-    .select("id")
-    .maybeSingle();
+  const { data, error } = await authenticated.supabase.functions.invoke(
+    "delete-task",
+    { body: parsed.data },
+  );
 
-  if (error) return databaseError("delete", error);
-  if (!data) return databaseError("delete", { code: "42501" });
+  if (error) return edgeDeleteError(error);
+  if (!data || data.taskId !== parsed.data.taskId) {
+    return edgeDeleteError(null);
+  }
 
   revalidateWorkspace(parsed.data.workspaceId);
-  return { ok: true, data: data.id };
+  return { ok: true, data: data.taskId };
 }

@@ -39,6 +39,7 @@ function task(overrides: Partial<TaskItem> = {}): TaskItem {
     createdBy: userId,
     createdAt: "2026-07-10T00:00:00Z",
     updatedAt: "2026-07-10T01:00:00Z",
+    attachmentCount: 2,
     ...overrides,
   };
 }
@@ -117,6 +118,7 @@ describe("task components", () => {
       "22222222-2222-4222-8222-222222222222",
     );
     expect(screen.getByText("未分配")).toBeVisible();
+    expect(screen.getAllByText("附件 2")).toHaveLength(2);
   });
 
   it("opens a create dialog with documented defaults", () => {

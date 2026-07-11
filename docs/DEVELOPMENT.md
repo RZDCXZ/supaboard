@@ -800,7 +800,7 @@ git commit -m "feat: add public avatar storage"
 4. 上传流程严格执行“对象上传成功后再写元数据”；元数据失败时立即删除刚上传对象并返回失败。
 5. 下载 action 通过当前用户 Server Client 生成 `60 秒` signed URL，不返回永久公开地址。
 6. 删除附件同时处理对象与元数据；任一步失败时页面展示真实状态，不提前移除文件项。
-7. 删除任务前先列出并删除全部对象，确认成功后再删除任务记录。
+7. 使用官方 CLI 创建用户 JWT 认证的 `delete-task` Edge Function；函数先以用户身份确认任务权限，再用管理员客户端删除全部对象，最后仍以用户身份删除任务记录。
 8. 编写 Bob 下载成员附件、Charlie 读取失败、Bob 删除 Alice 附件失败、Owner 删除成功等测试。
 
 ### 验证命令与预期结果
@@ -838,6 +838,8 @@ pnpm typecheck
 git add supabase src/features/storage src/features/tasks tests
 git commit -m "feat: add private task attachments"
 ```
+
+> 实施状态（2026-07-11）：已完成。迁移创建了 `attachments` 元数据表、私有 bucket、复合任务外键、显式授权以及表与对象两层 RLS；浏览器按“对象上传 → 元数据写入”执行，写入失败会立即补偿清理。任务抽屉支持单文件上传、60 秒签名下载和授权删除，任务列表同步附件数量。带附件任务删除由用户 JWT 认证的 `delete-task` Edge Function 完整编排，管理员客户端只负责 Storage 对象清理，任务记录仍以用户身份删除。pgTAP、Vitest 和 Playwright 覆盖成员读取、非成员拒绝、上传者/Owner 删除、补偿与无残留任务删除。
 
 ## 14. 阶段 12：任务与评论 Postgres Changes
 

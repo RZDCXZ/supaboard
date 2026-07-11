@@ -22,6 +22,7 @@ export type TaskItem = {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  attachmentCount: number;
 };
 
 export type WorkspaceTaskStats = {

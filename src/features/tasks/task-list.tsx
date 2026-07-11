@@ -1,6 +1,11 @@
 "use client";
 
-import { ChevronDownIcon, ClipboardListIcon, PlusIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ClipboardListIcon,
+  PaperclipIcon,
+  PlusIcon,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +72,10 @@ function TaskRow({ task, onOpen }: { task: TaskItem; onOpen: () => void }) {
           ) : (
             <span>未分配</span>
           )}
+          <span className="inline-flex items-center gap-1">
+            <PaperclipIcon aria-hidden="true" className="size-3.5" />
+            附件 {task.attachmentCount}
+          </span>
         </span>
       </span>
       <time className="text-xs text-muted-foreground" dateTime={task.updatedAt}>

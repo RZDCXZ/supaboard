@@ -6,6 +6,7 @@ import { useReducer, useState, useTransition } from "react";
 import { InlineAlert } from "@/components/feedback/inline-alert";
 import { Button } from "@/components/ui/button";
 import type { CommentItem } from "@/features/comments/types";
+import type { AttachmentItem } from "@/features/storage/attachments/types";
 import type { WorkspaceRole } from "@/features/workspaces/types";
 
 import { CreateTaskDialog } from "./create-task-dialog";
@@ -62,6 +63,7 @@ export function TaskWorkspace({
   taskPage,
   members,
   comments,
+  attachments,
   commentsError = false,
   currentUserId,
   workspaceRole,
@@ -75,6 +77,7 @@ export function TaskWorkspace({
   taskPage: TaskPage;
   members: readonly TaskMemberOption[];
   comments: readonly CommentItem[];
+  attachments: readonly AttachmentItem[];
   commentsError?: boolean;
   currentUserId: string;
   workspaceRole: WorkspaceRole;
@@ -234,6 +237,7 @@ export function TaskWorkspace({
           task={drawerTask}
           members={members}
           comments={comments}
+          attachments={attachments}
           commentsError={commentsError}
           currentUserId={currentUserId}
           workspaceRole={workspaceRole}
