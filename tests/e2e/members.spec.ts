@@ -38,7 +38,8 @@ test("成员列表与负责人选项遵守工作区边界", async ({
   await expect(aliceRows.nth(1)).toContainText("成员");
   await expect(aliceMain).not.toContainText(actors.alice.email);
   await expect(aliceMain).not.toContainText(actors.bob.email);
-  await expect(page.getByRole("button", { name: /添加|移除|降级/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "添加成员" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "移除 Bob" })).toBeVisible();
 
   await page.getByRole("tab", { name: "任务" }).click();
   await page.getByRole("button", { name: "新建任务" }).first().click();

@@ -11,6 +11,7 @@ import { parseWorkspaceViewSearchParams } from "@/features/activity/search-param
 import { WorkspaceTabs } from "@/features/activity/workspace-tabs";
 import { getTaskComments } from "@/features/comments/queries";
 import { MemberList } from "@/features/members/member-list";
+import { AddMemberDialog } from "@/features/members/member-management";
 import { getWorkspaceMembers } from "@/features/members/queries";
 import { getTaskAttachments } from "@/features/storage/attachments/queries";
 import {
@@ -95,19 +96,29 @@ export default async function WorkspacePage({
     );
     const members = membersResult.status === "fulfilled" ? membersResult.value : null;
     const retryHref = `/app/workspaces/${workspaceId}?tab=members`;
+    const memberHeaderActions = (
+      <div className="flex items-center gap-2">
+        {workspace.role === "owner" ? (
+          <AddMemberDialog workspaceId={workspaceId} />
+        ) : null}
+        {headerActions}
+      </div>
+    );
 
     return (
       <main>
         <PageHeader
           title={workspace.name}
           description={members ? `${members.length} 位成员` : "查看工作区成员"}
-          actions={headerActions}
+          actions={memberHeaderActions}
         />
         <WorkspaceTabs tab="members" />
         <MemberList
           members={members}
           error={membersResult.status === "rejected"}
           retryHref={retryHref}
+          workspaceId={workspaceId}
+          canManage={workspace.role === "owner"}
         />
       </main>
     );

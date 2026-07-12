@@ -63,6 +63,9 @@ export function useWorkspaceChanges({
     useState<WorkspaceRealtimeStatus>("connecting");
   const [reconnectVersion, setReconnectVersion] = useState(0);
   const [connectionEpoch, setConnectionEpoch] = useState(0);
+  const [revokedWorkspaceId, setRevokedWorkspaceId] = useState<string | null>(
+    null,
+  );
   const hasConnectedRef = useRef(false);
   const workspaceChannelRef = useRef<RealtimeChannel | null>(null);
   const workspaceChannelSubscribedRef = useRef(false);
@@ -96,6 +99,7 @@ export function useWorkspaceChanges({
     let active = true;
     let postgresChannel: RealtimeChannel | null = null;
     let workspaceChannel: RealtimeChannel | null = null;
+    let accessRevocationHandled = false;
     const subscribed: Record<ChannelKind, boolean> = {
       postgres: false,
       workspace: false,
@@ -136,6 +140,31 @@ export function useWorkspaceChanges({
       setConnectionEpoch((current) => current + 1);
     }
 
+    async function checkWorkspaceAccess() {
+      if (!active || accessRevocationHandled) return;
+
+      const { data, error } = await supabase
+        .from("workspace_members")
+        .select("user_id")
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", currentUserId)
+        .maybeSingle();
+      if (!active || error || data) return;
+
+      accessRevocationHandled = true;
+      workspaceChannelSubscribedRef.current = false;
+      workspaceChannelRef.current = null;
+      clearPresence();
+      clearTyping();
+      setStatus("disconnected");
+      setRevokedWorkspaceId(workspaceId);
+      if (postgresChannel) void supabase.removeChannel(postgresChannel);
+      if (workspaceChannel) {
+        void workspaceChannel.untrack();
+        void supabase.removeChannel(workspaceChannel);
+      }
+    }
+
     function handleChannelStatus(kind: ChannelKind, nextStatus: string) {
       if (!active) return;
 
@@ -162,6 +191,7 @@ export function useWorkspaceChanges({
         workspaceChannelSubscribedRef.current = false;
         clearPresence();
         clearTyping();
+        if (nextStatus === "CHANNEL_ERROR") void checkWorkspaceAccess();
       }
       if (nextStatus === "CLOSED") {
         setStatus("disconnected");
@@ -280,5 +310,6 @@ export function useWorkspaceChanges({
     onlineMembers,
     typingUserIds,
     notifyTyping,
+    accessRevoked: revokedWorkspaceId === workspaceId,
   };
 }

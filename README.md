@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 13——私有工作区 Realtime 协作。任务与评论继续通过 Postgres Changes 和私有 DELETE Broadcast 同步；同一 `workspace:{workspaceId}` 私有频道新增 Presence 在线成员与评论 `typing` Broadcast，支持 500 ms 节流、2 秒自动停止、断线清理和重连。频道权限由 `realtime.messages` RLS 绑定工作区成员关系，非成员和被移除成员无法加入。
+> 当前进度：已完成阶段 14——Edge Function 与成员管理。Owner 可按邮箱添加已注册用户并通过确认框移除普通成员；添加函数先用调用者身份和 RLS 证明 Owner 权限，再使用函数环境中的管理员客户端查找 Auth 用户并写入成员关系。普通成员不能管理成员，被移除用户的后续请求和重新连接会失去权限。
 
 ## 目标能力
 
@@ -80,10 +80,10 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=本地 CLI 输出的 Publishable Key
 pnpm dev
 ```
 
-涉及带附件任务删除时，在另一个终端启动本地 Edge Function：
+涉及带附件任务删除或成员管理时，在另一个终端启动本地 Edge Functions：
 
 ```bash
-pnpm exec supabase functions serve delete-task
+pnpm exec supabase functions serve
 ```
 
 默认访问地址为 <http://localhost:3000>，也可使用 <http://127.0.0.1:3000>。开发环境的 Next.js 静态资源固定从 `localhost` 加载，避免本机代理拦截 HMR WebSocket。
@@ -130,7 +130,7 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 | `pnpm test:e2e` | 启动开发服务器并运行 Playwright Chromium 测试 |
 | `pnpm exec supabase start` | 启动本地 Supabase 服务 |
 | `pnpm exec supabase status` | 查看本地服务地址和开发凭据 |
-| `pnpm exec supabase functions serve delete-task` | 启动任务删除 Edge Function |
+| `pnpm exec supabase functions serve` | 启动任务删除和成员管理 Edge Functions |
 | `pnpm exec supabase db reset` | 从迁移和 Seed 重建本地数据库 |
 | `pnpm exec supabase test db --local` | 运行本地 pgTAP 数据库测试 |
 | `pnpm exec supabase gen types typescript --local > src/types/database.ts` | 重新生成数据库类型 |
@@ -147,7 +147,7 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 ├── src/features/activity/ # 任务活动查询、分页与只读时间线
 ├── src/features/auth/    # Auth 校验、Server Actions 与表单
 ├── src/features/comments/ # 评论校验、查询、Server Actions 与界面
-├── src/features/members/ # 最小成员 DTO、查询与只读成员列表
+├── src/features/members/ # 成员查询、添加/移除 Actions 与管理界面
 ├── src/features/profiles/ # 公开昵称、头像路径 Action 与设置表单
 ├── src/features/realtime/ # Postgres Changes、私有频道、Presence 与 typing 状态
 ├── src/features/storage/ # 头像文件校验、固定路径与公共 URL

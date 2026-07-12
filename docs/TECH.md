@@ -148,12 +148,15 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=本地 CLI 输出的 publishable key
 ```
 
+`add-member-by-email` Edge Function 使用 `APP_ORIGIN` 限制浏览器来源；本地未配置时默认为 `http://localhost:3000`，部署时设置为实际应用 origin。
+
 规则：
 
 - `.env*` 不提交，只提交 `.env.example` 的变量名。
 - 任何 `NEXT_PUBLIC_` 变量都会进入浏览器包，因此只能放项目 URL 和 publishable key。
 - 不在 Next.js 环境保存 secret/service key。
 - Edge Function 使用平台提供的 Supabase 环境变量和受保护的 secret keys；本地额外秘密通过 `supabase functions serve --env-file` 注入。
+- `APP_ORIGIN` 只保存 origin，不包含路径；函数同时校验实际请求的 `Origin`，不依赖浏览器预检作为授权边界。
 
 ### 5.2 标准工作流
 

@@ -2,7 +2,7 @@ begin;
 
 \ir ./_helpers.psql
 
-select plan(24);
+select plan(26);
 
 select has_table('public', 'workspaces', 'workspaces table exists');
 select has_table('public', 'workspace_members', 'workspace_members table exists');
@@ -166,7 +166,26 @@ select throws_ok(
   'Bob cannot add workspace members'
 );
 
+select lives_ok(
+  $$delete from public.workspace_members
+    where workspace_id = (select id from test_workspace_ids where key = 'alpha')
+      and user_id = '00000000-0000-4000-8000-000000000012'$$,
+  'a non-owner member removal does not leak an authorization error'
+);
+
 reset role;
+
+select is(
+  (
+    select count(*)::integer
+    from public.workspace_members
+    where workspace_id = (select id from test_workspace_ids where key = 'alpha')
+      and user_id = '00000000-0000-4000-8000-000000000012'
+  ),
+  1,
+  'Bob cannot remove workspace members'
+);
+
 select tests.authenticate_as('alice');
 set local role authenticated;
 

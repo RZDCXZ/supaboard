@@ -57,6 +57,7 @@ const mocks = vi.hoisted(() => {
       return entry.channel;
     }),
     removeChannel: vi.fn().mockResolvedValue("ok"),
+    from: vi.fn(),
     realtime: {
       setAuth: vi.fn().mockResolvedValue(undefined),
     },
@@ -73,6 +74,7 @@ const mocks = vi.hoisted(() => {
       if (!callback) throw new Error(`缺少 ${name} 的订阅回调`);
       callback(status, error);
     },
+    membershipResult: vi.fn(),
   };
 });
 
@@ -117,6 +119,20 @@ describe("useWorkspaceChanges", () => {
     mocks.client.channel.mockClear();
     mocks.client.removeChannel.mockClear();
     mocks.client.realtime.setAuth.mockClear();
+    mocks.membershipResult.mockReset();
+    mocks.membershipResult.mockResolvedValue({
+      data: { user_id: aliceId },
+      error: null,
+    });
+    const builder = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: mocks.membershipResult,
+    };
+    builder.select.mockReturnValue(builder);
+    builder.eq.mockReturnValue(builder);
+    mocks.client.from.mockReset();
+    mocks.client.from.mockReturnValue(builder);
     Object.defineProperty(window.navigator, "onLine", {
       configurable: true,
       value: true,
@@ -318,6 +334,23 @@ describe("useWorkspaceChanges", () => {
     });
     expect(result.current.status).toBe("connected");
     expect(result.current.resyncVersion).toBe(1);
+  });
+
+  it("removes workspace channels after a permission error confirms membership loss", async () => {
+    mocks.membershipResult.mockResolvedValue({ data: null, error: null });
+    const { result } = renderHook(() => useRealtime());
+    await waitFor(() => expect(mocks.client.channel).toHaveBeenCalledTimes(2));
+
+    act(() => {
+      mocks.subscribe(`workspace-postgres:${workspaceId}`, "SUBSCRIBED");
+      mocks.subscribe(`workspace:${workspaceId}`, "CHANNEL_ERROR");
+    });
+
+    await waitFor(() => expect(result.current.accessRevoked).toBe(true));
+    expect(mocks.client.from).toHaveBeenCalledWith("workspace_members");
+    await waitFor(() => expect(mocks.client.removeChannel).toHaveBeenCalledTimes(2));
+    expect(result.current.onlineMembers).toEqual([]);
+    expect(result.current.typingUserIds).toEqual([]);
   });
 
   it("removes the old channel when the workspace changes or unmounts", async () => {

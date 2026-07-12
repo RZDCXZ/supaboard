@@ -1039,6 +1039,8 @@ git add supabase/functions supabase/config.toml src/features/members tests
 git commit -m "feat: add edge member management"
 ```
 
+> 实施状态（2026-07-12）：已完成。`add-member-by-email` 保持平台 JWT 验证，通过用户客户端的 RLS 查询和显式 Owner 角色证明权限后，才分页使用管理员客户端查找最多 1000 个 Auth 用户并写入普通成员关系；handler 以依赖注入覆盖 200、400、401、403、404、409、500 和 request ID，实际 POST 还会校验配置的 `APP_ORIGIN`。成员页为 Owner 提供邮箱弹窗和危险确认移除，普通成员无管理入口；移除只匹配 `role = 'member'`，私有频道权限失败并确认成员关系丢失后会清理临时状态、移除相关 Realtime channel 并退出工作区。pgTAP、Vitest 与 Playwright 覆盖 Owner/普通成员权限、未注册邮箱、重复成员、添加/移除和移除后重连失败。
+
 ## 17. 阶段 15：完整本地测试与安全验收
 
 ### 目标

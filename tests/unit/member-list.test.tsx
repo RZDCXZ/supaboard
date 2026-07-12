@@ -1,8 +1,13 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { MemberList } from "@/features/members/member-list";
+import { AddMemberDialog } from "@/features/members/member-management";
 import type { WorkspaceMember } from "@/features/members/types";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 const members: WorkspaceMember[] = [
   {
@@ -22,11 +27,13 @@ const members: WorkspaceMember[] = [
 ];
 
 describe("MemberList", () => {
-  it("renders owner-first public member details without management controls", () => {
+  it("renders owner-first public member details with controls only for ordinary members", () => {
     render(
       <MemberList
         members={members}
         retryHref="/app/workspaces/workspace-1?tab=members"
+        workspaceId="11111111-1111-4111-8111-111111111111"
+        canManage
       />,
     );
 
@@ -37,7 +44,35 @@ describe("MemberList", () => {
     expect(within(rows[1]!).getByText("成员")).toBeVisible();
     expect(screen.getAllByText(/加入于/)).toHaveLength(2);
     expect(screen.queryByText(/@/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /添加|移除|降级/ })).not.toBeInTheDocument();
+    expect(within(rows[0]!).queryByRole("button", { name: /移除/ })).not.toBeInTheDocument();
+    expect(within(rows[1]!).getByRole("button", { name: "移除 Bob" })).toBeVisible();
+  });
+
+  it("does not expose management controls to ordinary members", () => {
+    render(
+      <MemberList
+        members={members}
+        retryHref="/app/workspaces/workspace-1?tab=members"
+        workspaceId="11111111-1111-4111-8111-111111111111"
+        canManage={false}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /移除/ })).not.toBeInTheDocument();
+  });
+
+  it("opens an email-only add member dialog", () => {
+    render(
+      <AddMemberDialog workspaceId="11111111-1111-4111-8111-111111111111" />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "添加成员" }));
+    expect(screen.getByRole("dialog", { name: "添加成员" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "邮箱" })).toHaveAttribute(
+      "type",
+      "email",
+    );
+    expect(screen.getByText("仅可添加已经注册的用户。")).toBeVisible();
   });
 
   it("explains when the owner is the only member", () => {
@@ -45,6 +80,7 @@ describe("MemberList", () => {
       <MemberList
         members={[members[0]!]}
         retryHref="/app/workspaces/workspace-1?tab=members"
+        workspaceId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -56,6 +92,7 @@ describe("MemberList", () => {
       <MemberList
         members={[]}
         retryHref="/app/workspaces/workspace-1?tab=members"
+        workspaceId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -69,6 +106,7 @@ describe("MemberList", () => {
         members={null}
         error
         retryHref="/app/workspaces/workspace-1?tab=members"
+        workspaceId="11111111-1111-4111-8111-111111111111"
       />,
     );
 

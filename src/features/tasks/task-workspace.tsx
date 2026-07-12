@@ -153,6 +153,7 @@ export function TaskWorkspace({
     onlineMembers,
     typingUserIds,
     notifyTyping,
+    accessRevoked,
   } = useWorkspaceChanges({
     workspaceId,
     currentUserId,
@@ -205,6 +206,15 @@ export function TaskWorkspace({
   const visibleTasks = remotelyDeletedTaskId
     ? tasks.filter(({ id }) => id !== remotelyDeletedTaskId)
     : tasks;
+
+  useEffect(() => {
+    if (!accessRevoked) return;
+
+    startTransition(() => {
+      router.replace("/app");
+      router.refresh();
+    });
+  }, [accessRevoked, router]);
 
   useEffect(() => {
     if (resyncVersion === 0) return;

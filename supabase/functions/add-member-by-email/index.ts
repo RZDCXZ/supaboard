@@ -1,30 +1,73 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+import "@supabase/functions-js/edge-runtime.d.ts";
+import { withSupabase } from "@supabase/server";
 
-// Setup type definitions for built-in Supabase Runtime APIs
-import "@supabase/functions-js/edge-runtime.d.ts"
-import { withSupabase } from "@supabase/server"
+import { handleAddMemberRequest } from "./handler.ts";
 
-console.log("Hello from Functions!")
+const appOrigin = Deno.env.get("APP_ORIGIN") ?? "http://localhost:3000";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": appOrigin,
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  Vary: "Origin",
+};
 
-// This endpoint uses 'user' access, credentials is required.
-export default {
-  fetch: withSupabase({ auth: "user" }, async (_req, ctx) => {
-    const email = ctx.userClaims?.email;
+const addMemberByEmailFunction = {
+  fetch: withSupabase(
+    { auth: "user", cors: corsHeaders },
+    async (request, context) => {
+      const requestId = crypto.randomUUID();
 
-    return Response.json({
-      message: `Hello ${email}!`,
-    })
-  }),
-}
+      return handleAddMemberRequest(request, {
+        userId: context.userClaims?.id ?? null,
+        requestId,
+        allowedOrigin: appOrigin,
+        isWorkspaceOwner: async (workspaceId) => {
+          const { data, error } = await context.supabase
+            .from("workspace_members")
+            .select("user_id")
+            .eq("workspace_id", workspaceId)
+            .eq("user_id", context.userClaims?.id ?? "")
+            .eq("role", "owner")
+            .maybeSingle();
+          if (error) throw new Error("OWNER_CHECK_FAILED");
+          return Boolean(data);
+        },
+        findUserByEmail: async (email) => {
+          const pageSize = 100;
+          const maxPages = 10;
 
-/* To invoke locally:
+          for (let page = 1; page <= maxPages; page += 1) {
+            const { data, error } = await context.supabaseAdmin.auth.admin.listUsers({
+              page,
+              perPage: pageSize,
+            });
+            if (error) throw new Error("AUTH_USER_LOOKUP_FAILED");
 
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
+            const match = data.users.find(
+              (user) => user.email?.trim().toLowerCase() === email,
+            );
+            if (match) return match.id;
+            if (data.users.length < pageSize) return null;
+          }
 
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/add-member-by-email' \
-    --header 'apiKey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' \
-    --header 'Authorization: Bearer <UserToken>'
-*/
+          return null;
+        },
+        insertMember: async ({ workspaceId, userId, addedBy }) => {
+          const { error } = await context.supabaseAdmin
+            .from("workspace_members")
+            .insert({
+              workspace_id: workspaceId,
+              user_id: userId,
+              role: "member",
+              added_by: addedBy,
+            });
+          if (!error) return "inserted";
+          return error.code === "23505" ? "exists" : "error";
+        },
+      });
+    },
+  ),
+};
+
+export default addMemberByEmailFunction;

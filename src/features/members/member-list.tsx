@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/empty";
 import { formatFullDateTime } from "@/lib/date-time";
 
+import { RemoveMemberButton } from "./member-management";
 import type { WorkspaceMember } from "./types";
 
 function initials(name: string) {
@@ -24,10 +25,14 @@ export function MemberList({
   members,
   error = false,
   retryHref,
+  workspaceId,
+  canManage = false,
 }: {
   members: readonly WorkspaceMember[] | null;
   error?: boolean;
   retryHref: string;
+  workspaceId: string;
+  canManage?: boolean;
 }) {
   if (error || !members) {
     return (
@@ -90,6 +95,13 @@ export function MemberList({
                 加入于 {formatFullDateTime(member.joinedAt)}
               </time>
             </div>
+            {canManage && member.role === "member" ? (
+              <RemoveMemberButton
+                workspaceId={workspaceId}
+                userId={member.id}
+                displayName={member.displayName}
+              />
+            ) : null}
           </li>
         ))}
       </ul>
