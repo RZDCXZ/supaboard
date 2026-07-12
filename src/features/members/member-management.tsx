@@ -42,7 +42,7 @@ export function AddMemberDialog({ workspaceId }: { workspaceId: string }) {
   const [isPending, startTransition] = useTransition();
   const emailRef = useRef<HTMLInputElement>(null);
 
-  function reset() {
+  function clearError() {
     setError(null);
   }
 
@@ -66,7 +66,7 @@ export function AddMemberDialog({ workspaceId }: { workspaceId: string }) {
       }
 
       setOpen(false);
-      reset();
+      clearError();
       router.refresh();
       toast.success("成员已添加");
     });
@@ -77,7 +77,7 @@ export function AddMemberDialog({ workspaceId }: { workspaceId: string }) {
       open={open}
       onOpenChange={(nextOpen) => {
         if (isPending) return;
-        if (!nextOpen) reset();
+        if (!nextOpen) clearError();
         setOpen(nextOpen);
       }}
     >
@@ -125,7 +125,7 @@ export function AddMemberDialog({ workspaceId }: { workspaceId: string }) {
               variant="outline"
               disabled={isPending}
               onClick={() => {
-                reset();
+                clearError();
                 setOpen(false);
               }}
             >

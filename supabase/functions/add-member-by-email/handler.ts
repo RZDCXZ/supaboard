@@ -9,15 +9,19 @@ type InsertMemberInput = {
   addedBy: string;
 };
 
+export type AddMemberAdminServices = {
+  findUserByEmail: (email: string) => Promise<string | null>;
+  insertMember: (
+    input: InsertMemberInput,
+  ) => Promise<"inserted" | "exists" | "error">;
+};
+
 export type AddMemberServices = {
   userId: string | null;
   requestId: string;
   allowedOrigin: string;
   isWorkspaceOwner: (workspaceId: string) => Promise<boolean>;
-  findUserByEmail: (email: string) => Promise<string | null>;
-  insertMember: (
-    input: InsertMemberInput,
-  ) => Promise<"inserted" | "exists" | "error">;
+  createAdminServices: () => AddMemberAdminServices;
 };
 
 type AddMemberErrorCode =
@@ -50,6 +54,15 @@ function errorResponse(
   return jsonResponse(
     { error: { code, message, requestId } },
     status,
+    requestId,
+  );
+}
+
+export function addMemberAuthenticationErrorResponse(requestId: string) {
+  return errorResponse(
+    401,
+    "NOT_AUTHENTICATED",
+    "请先登录后再添加成员",
     requestId,
   );
 }
@@ -90,12 +103,7 @@ export async function handleAddMemberRequest(
   }
 
   if (!services.userId) {
-    return errorResponse(
-      401,
-      "NOT_AUTHENTICATED",
-      "请先登录后再添加成员",
-      services.requestId,
-    );
+    return addMemberAuthenticationErrorResponse(services.requestId);
   }
 
   const parsed = await parseRequest(request);
@@ -118,7 +126,8 @@ export async function handleAddMemberRequest(
       );
     }
 
-    const targetUserId = await services.findUserByEmail(parsed.data.email);
+    const admin = services.createAdminServices();
+    const targetUserId = await admin.findUserByEmail(parsed.data.email);
     if (!targetUserId) {
       return errorResponse(
         404,
@@ -128,7 +137,7 @@ export async function handleAddMemberRequest(
       );
     }
 
-    const insertResult = await services.insertMember({
+    const insertResult = await admin.insertMember({
       workspaceId: parsed.data.workspaceId,
       userId: targetUserId,
       addedBy: services.userId,
@@ -148,9 +157,19 @@ export async function handleAddMemberRequest(
       200,
       services.requestId,
     );
-  } catch {
+  } catch (error) {
+    const failure =
+      error instanceof Error &&
+      [
+        "OWNER_CHECK_FAILED",
+        "AUTH_USER_LOOKUP_FAILED",
+        "MEMBER_INSERT_FAILED",
+      ].includes(error.message)
+        ? error.message
+        : "UNEXPECTED_FAILURE";
     console.error("add-member-by-email failed", {
       requestId: services.requestId,
+      failure,
     });
     return errorResponse(
       500,

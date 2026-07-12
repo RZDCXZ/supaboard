@@ -33,8 +33,10 @@ function services(
     requestId: "request-123",
     allowedOrigin: "http://localhost:3000",
     isWorkspaceOwner: vi.fn().mockResolvedValue(true),
-    findUserByEmail: vi.fn().mockResolvedValue(memberId),
-    insertMember: vi.fn().mockResolvedValue("inserted"),
+    createAdminServices: vi.fn(() => ({
+      findUserByEmail: vi.fn().mockResolvedValue(memberId),
+      insertMember: vi.fn().mockResolvedValue("inserted"),
+    })),
     ...overrides,
   };
 }
@@ -86,31 +88,39 @@ describe("add-member-by-email Edge handler", () => {
   });
 
   it("在 Owner 权限通过前不使用管理员能力", async () => {
-    const findUserByEmail = vi.fn();
-    const insertMember = vi.fn();
+    const createAdminServices = vi.fn();
     const response = await handleAddMemberRequest(
       request({ workspaceId, email: "member@example.com" }),
       services({
         isWorkspaceOwner: vi.fn().mockResolvedValue(false),
-        findUserByEmail,
-        insertMember,
+        createAdminServices,
       }),
     );
 
     expect(response.status).toBe(403);
-    expect(findUserByEmail).not.toHaveBeenCalled();
-    expect(insertMember).not.toHaveBeenCalled();
+    expect(createAdminServices).not.toHaveBeenCalled();
   });
 
   it("标准化邮箱并返回新增成员", async () => {
+    const events: string[] = [];
+    const isWorkspaceOwner = vi.fn(async () => {
+      events.push("owner");
+      return true;
+    });
     const findUserByEmail = vi.fn().mockResolvedValue(memberId);
     const insertMember = vi.fn().mockResolvedValue("inserted");
+    const createAdminServices = vi.fn(() => {
+      events.push("admin");
+      return { findUserByEmail, insertMember };
+    });
     const response = await handleAddMemberRequest(
       request({ workspaceId, email: "  MEMBER@Example.COM  " }),
-      services({ findUserByEmail, insertMember }),
+      services({ isWorkspaceOwner, createAdminServices }),
     );
 
     expect(findUserByEmail).toHaveBeenCalledWith("member@example.com");
+    expect(createAdminServices).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(["owner", "admin"]);
     expect(insertMember).toHaveBeenCalledWith({
       workspaceId,
       userId: memberId,
@@ -131,8 +141,10 @@ describe("add-member-by-email Edge handler", () => {
       const response = await handleAddMemberRequest(
         request({ workspaceId, email: "member@example.com" }),
         services({
-          findUserByEmail: vi.fn().mockResolvedValue(foundUserId),
-          insertMember: vi.fn().mockResolvedValue("exists"),
+          createAdminServices: () => ({
+            findUserByEmail: vi.fn().mockResolvedValue(foundUserId),
+            insertMember: vi.fn().mockResolvedValue("exists"),
+          }),
         }),
       );
 
@@ -147,7 +159,12 @@ describe("add-member-by-email Edge handler", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const response = await handleAddMemberRequest(
       request({ workspaceId, email: "member@example.com" }),
-      services({ insertMember: vi.fn().mockResolvedValue("error") }),
+      services({
+        createAdminServices: () => ({
+          findUserByEmail: vi.fn().mockResolvedValue(memberId),
+          insertMember: vi.fn().mockResolvedValue("error"),
+        }),
+      }),
     );
 
     expect(response.status).toBe(500);
