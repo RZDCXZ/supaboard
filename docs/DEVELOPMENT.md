@@ -1109,6 +1109,8 @@ git add supabase/tests tests package.json pnpm-lock.yaml
 git commit -m "test: complete local acceptance coverage"
 ```
 
+> 实施状态（2026-07-12）：已完成。已从停止状态启动本地 Supabase，并仅依赖仓库中的 9 个迁移和 Seed 完成 `db reset`；pgTAP、Vitest、Playwright、ESLint、类型检查和生产构建全部通过。新增 [`docs/ACCEPTANCE.md`](./ACCEPTANCE.md) 建立全部 PRD 功能编号与 DESIGN 第 14 节到数据库、单元和浏览器测试的映射，补充 Charlie 跨表 CRUD 拒绝矩阵、GitHub OAuth 本地契约测试、窄屏/对比度/焦点验收，以及生产浏览器 bundle、运行日志和日志调用的 secret 扫描；数据库错误日志已移除原始 message。PRD 9.1 七步主流程已在独立本地工作区逐项观察，双窗口、上传/下载和 Realtime 重连由全量 Playwright 复核；security/performance advisors 在 `warn` 级别无问题。真实 GitHub provider、远端迁移和托管项目 smoke test 保留在阶段 16。
+
 ## 18. 阶段 16：连接托管 Supabase 并云端验收
 
 ### 目标

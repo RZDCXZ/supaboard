@@ -66,7 +66,6 @@ function databaseError(
   console.error("Comment action failed", {
     operation,
     code: error?.code,
-    message: error?.message,
   });
 
   return {

@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 14——Edge Function 与成员管理。Owner 可按邮箱添加已注册用户并通过确认框移除普通成员；添加函数先用调用者身份和 RLS 证明 Owner 权限，再使用函数环境中的管理员客户端查找 Auth 用户并写入成员关系。普通成员不能管理成员，被移除用户的后续请求和重新连接会失去权限。
+> 当前进度：已完成阶段 15——完整本地测试与安全验收。项目可从停止的本地 Supabase 仅依赖迁移和 Seed 重建；pgTAP、Vitest、Playwright、静态检查、生产构建、浏览器 bundle secret 扫描及数据库 advisors 均已通过。测试映射和验收记录见 [`docs/ACCEPTANCE.md`](./docs/ACCEPTANCE.md)。
 
 ## 目标能力
 
@@ -126,8 +126,11 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 | `pnpm lint` | 运行 ESLint |
 | `pnpm typecheck` | 运行 TypeScript 类型检查 |
 | `pnpm test` | 运行 Vitest 单元测试 |
+| `pnpm test:db` | 运行本地 pgTAP 数据库测试 |
 | `pnpm test:watch` | 以监听模式运行单元测试 |
 | `pnpm test:e2e` | 启动开发服务器并运行 Playwright Chromium 测试 |
+| `pnpm check:secrets` | 扫描生产浏览器 bundle、运行日志和日志调用中的敏感字段 |
+| `pnpm check:advisors` | 运行本地数据库 security/performance advisors |
 | `pnpm exec supabase start` | 启动本地 Supabase 服务 |
 | `pnpm exec supabase status` | 查看本地服务地址和开发凭据 |
 | `pnpm exec supabase functions serve` | 启动任务删除和成员管理 Edge Functions |
@@ -173,6 +176,7 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 - [`docs/TECH.md`](./docs/TECH.md)：架构、数据模型、权限与测试策略。
 - [`docs/DESIGN.md`](./docs/DESIGN.md)：页面结构、视觉规范和交互状态。
 - [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md)：16 个可独立验证的开发阶段。
+- [`docs/ACCEPTANCE.md`](./docs/ACCEPTANCE.md)：PRD 测试映射、主流程与本地安全验收记录。
 
 ## 开发与安全约定
 

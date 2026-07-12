@@ -83,7 +83,6 @@ function databaseError(
   console.error("Task action failed", {
     operation,
     code: error?.code,
-    message: error?.message,
   });
 
   return {

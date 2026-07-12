@@ -10,8 +10,11 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:db": "supabase test db --local",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:advisors": "supabase db advisors --local --type all --level warn --fail-on error",
+    "check:secrets": "node scripts/check-browser-secrets.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.0",
