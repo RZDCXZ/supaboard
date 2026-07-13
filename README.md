@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 16——连接托管 Supabase 并完成云端验收。专用的新加坡学习项目保留迁移、Auth Provider、私有 Realtime 配置和 Edge Functions；邮箱 Auth、GitHub OAuth、Storage、双用户 Realtime、成员管理及带附件任务删除均已实测，验收用户和业务数据已清理。完整记录见 [`docs/ACCEPTANCE.md`](./docs/ACCEPTANCE.md)。
+> 项目状态：**已完成（16/16）**。阶段 16 已连接托管 Supabase 并完成云端验收；专用的新加坡学习项目保留迁移、Auth Provider、私有 Realtime 配置和 Edge Functions，验收用户和业务数据已清理。完整记录见 [`docs/ACCEPTANCE.md`](./docs/ACCEPTANCE.md)。
 
 ## 目标能力
 
