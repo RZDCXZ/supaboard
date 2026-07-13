@@ -216,7 +216,9 @@ export function useWorkspaceChanges({
 
           const filter = `workspace_id=eq.${workspaceId}`;
           postgresChannel = supabase
-            .channel(`workspace-postgres:${workspaceId}`)
+            .channel(`workspace-postgres:${workspaceId}`, {
+              config: { private: true },
+            })
             .on<TaskRow>(
               "postgres_changes",
               { event: "INSERT", schema: "public", table: "tasks", filter },

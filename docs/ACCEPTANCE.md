@@ -1,6 +1,6 @@
-# 本地验收
+# 验收记录
 
-本文档记录阶段 15 的本地验收范围。云端 GitHub OAuth、远端迁移、函数部署与托管项目 smoke test 属于阶段 16，不以本地模拟结果替代。
+本文档记录阶段 15 的完整本地验收和阶段 16 的托管 Supabase 云端验收。云端结果来自专用学习项目的实际迁移、平台配置和浏览器 smoke test，不以本地模拟结果替代。
 
 ## PRD 测试映射
 
@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | AUTH-01 | `tests/unit/auth-validation.test.ts`、`supabase/tests/database/profiles.test.sql` | `tests/e2e/auth.spec.ts` |
 | AUTH-02 | `tests/unit/auth-redirect.test.ts`、`tests/unit/supabase-env.test.ts` | `tests/e2e/auth.spec.ts`、`tests/e2e/home.spec.ts` |
-| AUTH-03 | `tests/unit/auth-actions.test.ts` 验证 GitHub provider、callback 和稳定错误映射 | 阶段 16 使用真实 GitHub provider 验证外部跳转与回调 |
+| AUTH-03 | `tests/unit/auth-actions.test.ts` 验证 GitHub provider、callback 和稳定错误映射 | 阶段 16 已使用真实 GitHub provider 验证外部跳转、PKCE callback 与受保护页面 |
 | AUTH-04～05 | `tests/unit/auth-validation.test.ts`、`tests/unit/auth-forms-ui.test.tsx` | `tests/e2e/auth.spec.ts` |
 | PROFILE-01 | `supabase/tests/database/profiles.test.sql`、`supabase/tests/database/authorization_matrix.test.sql` | `tests/e2e/auth.spec.ts` |
 | PROFILE-02 | `supabase/tests/database/avatar_storage.test.sql`、`tests/unit/avatar-storage.test.ts`、`tests/unit/profile-actions.test.ts` | `tests/e2e/avatar.spec.ts` |
@@ -69,3 +69,34 @@ pnpm check:advisors
 - 浏览器构建产物、开发运行日志和应用日志调用 secret 扫描通过；应用日志只记录操作、错误码或 request ID，不记录邮箱列表、Authorization、apikey、token、密码或 secret。
 - 390px 窄屏无水平溢出，核心任务操作可访问；正文、弱化文字、主按钮对比度及全局焦点环满足 DESIGN 基础验收。
 - Supabase security/performance advisors 在 `warn` 级别返回 `No issues found`。
+
+## 阶段 16 托管云端验收
+
+2026-07-13 使用仓库固定的 Supabase CLI 2.109.0 和临时 HOME，在个人账号创建新加坡区专用免费项目 `supaboard-learning`。推送前确认远端无迁移、业务表和用户；未连接生产数据、未上传 Seed、未部署 Next.js。
+
+### 平台配置与一致性
+
+- 10 个仓库迁移已全部应用，`migration list --linked` 本地与远端逐项一致，最终 `db push --linked --dry-run` 返回远端已是最新状态。
+- Auth Site URL 为 `http://localhost:3000`，允许 `localhost` 与 `127.0.0.1` 的本地回调；邮箱注册和邮箱确认开启。
+- 个人 GitHub OAuth App 已连接真实 Provider；Client Secret 只在 GitHub 与 Supabase Dashboard 间由用户输入，未进入聊天、命令、环境文件或 Git。
+- Realtime 仅允许私有频道；`delete-task` 和 `add-member-by-email` 均以 `verify_jwt = true` 部署，Edge secret 仅保存 `APP_ORIGIN=http://localhost:3000`。
+- 远端生成类型与 `src/types/database.ts` 执行严格 diff，仅出现托管 PostgREST 14.5 的 `__InternalSupabase` 运行时元数据；公开表、函数和枚举类型没有差异。该项不是迁移或 schema 漂移，因此不写入以本地迁移为真相来源的仓库类型。
+
+### 浏览器 smoke test
+
+1. 两个不同邮箱分别完成注册、邮件确认、登录与刷新后的受保护页面访问；未额外触发密码恢复邮件。
+2. 独立 GitHub 身份完成 OAuth 授权、PKCE callback、登录和受保护页面访问。
+3. Owner 创建工作区、任务和评论，上传公共头像与私有附件，并通过签名 URL 下载附件。
+4. `add-member-by-email` 将第二邮箱加入工作区；两个隔离浏览器窗口显示在线 2 人，Postgres Changes、Presence 和 typing Broadcast 均无需刷新生效。
+5. `delete-task` 删除带附件任务后，任务、评论、附件元数据和 `task-attachments` Storage 对象均为 0。
+6. 移除成员后，第二用户刷新和直接访问工作区 URL 均被拒绝。
+
+仅私有频道首次在托管环境暴露出真实兼容差异：默认 Postgres Changes 频道被平台以 `PrivateOnly` 拒绝，而 Presence 私有频道仍可连接。客户端现显式设置 Postgres Changes 频道 `private: true`；迁移 `20260713070436_authorize_private_postgres_changes.sql` 为 `workspace-postgres:<workspace-id>` 增加成员级只读 topic 授权。新增 pgTAP 覆盖 Owner、成员、非成员和异常 topic，修复后页面稳定显示“实时同步：已连接”，双窗口测试通过。
+
+### Advisors 与清理
+
+- 云端修复后重新执行本地 `db reset`；pgTAP 10 个文件、242 条测试，Vitest 200 条测试和 Playwright 20 条测试全部通过，ESLint、TypeScript、生产构建、secret 扫描与 local advisors 通过。
+- 远端 security advisors 无问题，performance advisors 无 `WARN` 或 `ERROR`。
+- performance advisors 保留 5 个 `INFO`：3 个未单独覆盖的外键索引和 2 个尚未使用的索引。项目在验收后为空，现有查询索引仍服务既定访问路径；这些提示不足以支持阶段 16 扩张 schema，因此记录但不新增或删除索引。
+- 验收结束后删除测试工作区、三个 Auth 用户、头像、附件和空目录占位对象。最终 `auth.users`、`profiles`、工作区、成员、任务、评论、附件与 `storage.objects` 计数均为 0。
+- 托管迁移、GitHub Provider、Auth URL、私有 Realtime 设置、Edge secret 和两个函数部署保留；本地 `.env.local` 继续使用托管 Project URL 与 publishable key，未保存 secret/service key。

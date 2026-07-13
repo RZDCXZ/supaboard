@@ -2,7 +2,7 @@
 
 SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。项目以一条完整的业务链路串联 Supabase Database、Auth、RLS、Storage、Realtime、Edge Functions 与 Next.js SSR，重点关注可复现的本地开发流程和多租户安全边界。
 
-> 当前进度：已完成阶段 15——完整本地测试与安全验收。项目可从停止的本地 Supabase 仅依赖迁移和 Seed 重建；pgTAP、Vitest、Playwright、静态检查、生产构建、浏览器 bundle secret 扫描及数据库 advisors 均已通过。测试映射和验收记录见 [`docs/ACCEPTANCE.md`](./docs/ACCEPTANCE.md)。
+> 当前进度：已完成阶段 16——连接托管 Supabase 并完成云端验收。专用的新加坡学习项目保留迁移、Auth Provider、私有 Realtime 配置和 Edge Functions；邮箱 Auth、GitHub OAuth、Storage、双用户 Realtime、成员管理及带附件任务删除均已实测，验收用户和业务数据已清理。完整记录见 [`docs/ACCEPTANCE.md`](./docs/ACCEPTANCE.md)。
 
 ## 目标能力
 
@@ -14,7 +14,7 @@ SupaBoard 是一个用于系统学习 Supabase 的多人协作任务板项目。
 - Database Functions、触发器、迁移、Seed 与类型生成。
 - Edge Function 特权操作及托管 Supabase 验收。
 
-以上是项目规划能力，不代表当前阶段均已实现。具体进度以 [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) 为准。
+以上能力均已按 [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) 的 16 个阶段完成实现与验收。
 
 ## 技术栈
 
@@ -136,7 +136,7 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 | `pnpm exec supabase functions serve` | 启动任务删除和成员管理 Edge Functions |
 | `pnpm exec supabase db reset` | 从迁移和 Seed 重建本地数据库 |
 | `pnpm exec supabase test db --local` | 运行本地 pgTAP 数据库测试 |
-| `pnpm exec supabase gen types typescript --local > src/types/database.ts` | 重新生成数据库类型 |
+| `pnpm exec supabase gen types --local --lang=typescript > src/types/database.ts` | 从本地迁移结果重新生成数据库类型 |
 | `pnpm exec supabase stop` | 停止本地 Supabase 服务 |
 
 ## 项目结构
@@ -181,7 +181,7 @@ URL 与 Publishable Key 继续读取 `.env.local`。Secret Key 不得添加 `NEX
 ## 开发与安全约定
 
 - 每次只推进一个开发阶段，验证通过后再进入下一阶段。
-- 数据库结构、策略、Storage 桶和 Realtime 配置统一通过迁移管理。
+- 数据库结构、策略、Storage 桶和 Realtime 数据库授权统一通过迁移管理；Auth Provider、URL 与项目级频道限制等平台配置记录在验收文档中。
 - 暴露 schema 中的业务表默认启用 RLS，并为授权行为编写测试。
 - 浏览器只使用 Supabase 项目 URL 和 publishable key。
 - secret/service key 不得进入 Next.js 公共环境变量、Git、文档或日志。

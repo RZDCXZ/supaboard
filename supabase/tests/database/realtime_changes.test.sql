@@ -71,6 +71,51 @@ select ok(
   'authenticated can execute workspace topic membership helper'
 );
 
+select has_function(
+  'private',
+  'is_workspace_postgres_topic_member',
+  array['text'],
+  'private.is_workspace_postgres_topic_member(text) exists'
+);
+
+select is(
+  (
+    select prosecdef
+    from pg_proc
+    where oid = 'private.is_workspace_postgres_topic_member(text)'::regprocedure
+  ),
+  true,
+  'workspace postgres topic membership helper is security definer'
+);
+
+select is(
+  (
+    select proconfig
+    from pg_proc
+    where oid = 'private.is_workspace_postgres_topic_member(text)'::regprocedure
+  ),
+  array['search_path=""'],
+  'workspace postgres topic membership helper has an empty search path'
+);
+
+select ok(
+  not has_function_privilege(
+    'public',
+    'private.is_workspace_postgres_topic_member(text)',
+    'execute'
+  ),
+  'PUBLIC cannot execute workspace postgres topic membership helper'
+);
+
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'private.is_workspace_postgres_topic_member(text)',
+    'execute'
+  ),
+  'authenticated can execute workspace postgres topic membership helper'
+);
+
 select has_trigger(
   'public',
   'tasks',
@@ -149,6 +194,21 @@ select ok(
   'workspace delete broadcast policy restricts extension and workspace membership'
 );
 
+select is(
+  (
+    select count(*)::integer
+    from pg_policies
+    where schemaname = 'realtime'
+      and tablename = 'messages'
+      and policyname = 'Workspace members can subscribe to postgres changes'
+      and cmd = 'SELECT'
+      and roles = array['authenticated'::name]
+      and qual ~ 'is_workspace_postgres_topic_member'
+  ),
+  1,
+  'private postgres changes policy targets authenticated workspace members'
+);
+
 create temporary table test_realtime_ids (
   key text primary key,
   id uuid not null
@@ -187,6 +247,13 @@ select ok(
   'workspace owner can access the workspace topic'
 );
 
+select ok(
+  private.is_workspace_postgres_topic_member(
+    'workspace-postgres:' || (select id from test_realtime_ids where key = 'alpha')::text
+  ),
+  'workspace owner can access the private postgres changes topic'
+);
+
 select tests.authenticate_as('bob');
 
 select ok(
@@ -194,6 +261,13 @@ select ok(
     'workspace:' || (select id from test_realtime_ids where key = 'alpha')::text
   ),
   'workspace member can access the workspace topic'
+);
+
+select ok(
+  private.is_workspace_postgres_topic_member(
+    'workspace-postgres:' || (select id from test_realtime_ids where key = 'alpha')::text
+  ),
+  'workspace member can access the private postgres changes topic'
 );
 
 select tests.authenticate_as('charlie');
@@ -206,8 +280,20 @@ select ok(
 );
 
 select ok(
+  not private.is_workspace_postgres_topic_member(
+    'workspace-postgres:' || (select id from test_realtime_ids where key = 'alpha')::text
+  ),
+  'non-member cannot access another workspace private postgres changes topic'
+);
+
+select ok(
   not private.is_workspace_topic_member('workspace:not-a-uuid'),
   'malformed workspace topics are rejected without casting errors'
+);
+
+select ok(
+  not private.is_workspace_postgres_topic_member('workspace-postgres:not-a-uuid'),
+  'malformed workspace postgres topics are rejected without casting errors'
 );
 
 select ok(

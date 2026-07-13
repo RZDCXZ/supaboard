@@ -149,6 +149,7 @@ describe("useWorkspaceChanges", () => {
     expect(mocks.client.channel).toHaveBeenNthCalledWith(
       1,
       `workspace-postgres:${workspaceId}`,
+      { config: { private: true } },
     );
     expect(mocks.client.channel).toHaveBeenNthCalledWith(2, `workspace:${workspaceId}`, {
       config: { private: true, presence: { key: aliceId } },
